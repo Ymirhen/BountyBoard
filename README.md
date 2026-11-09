@@ -14,12 +14,18 @@ The site is plain HTML, CSS and JavaScript with no build step. `config.js` is th
 | Piece | Where it lives | Who can see it |
 | --- | --- | --- |
 | Board page | GitHub Pages (this repo) | Everyone |
-| Bounty summaries (title, level, reward, status…) | The "Bounties" tab of the board Google Sheet | Everyone (the sheet is link-shared as Viewer) |
+| Bounty summaries (title, level, reward, status…) | The "Active" tab of the "Bounty Records" sheet in the "Bounty Project" Drive folder | Everyone (the sheet is link-shared as Viewer) |
 | Private event details | A Google Doc created in the poster's Drive | The poster, plus GMs it's shared with |
 
 Never put anything secret in the sheet, because it's public. Secrets go in the details doc.
 
-### Sheet columns
+### Sheet tabs
+
+- **Active**: open and claimed bounties, which the board shows.
+- **Completed** and **Failed**: the archive. Move a row here when a bounty ends.
+- **Completed by players**: one row per player per completed bounty, a running tally of who did what.
+
+### Active tab columns
 
 `id, title, level, reward_gold, status, poster_name, location, summary, details_doc_url, image_url, created_at, approved`
 

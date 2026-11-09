@@ -1,9 +1,10 @@
 // Carpathia Bounty Board configuration.
 // Everything in this file is public (it's served by GitHub Pages), so never put secrets here.
 window.BOARD_CONFIG = {
-  // The Google Sheet that holds the public bounty summaries.
-  SHEET_ID: "1mdGPnD4yEtIZ5hBxBzHgpTEUa6mmkbHTDLUE6HtGfGQ",
-  SHEET_TAB: "Bounties",
+  // "Bounty Records" sheet in the "Bounty Project" Drive folder.
+  // The board shows the "Active" tab; "Completed", "Failed" and "Completed by players" are the archive.
+  SHEET_ID: "18aIWb5d0SXblGI3A52q0Eni004KktkowDzoevcJS0HA",
+  SHEET_TAB: "Active",
 
   // OAuth client ID from Google Cloud Console (type: Web application).
   // Leave empty to run the board read-only (no sign-in, no posting).
