@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carpathia Bounty Board</title>
+  <meta name="description" content="Black Market bounties for the Wayward Vagrants.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="title-block">
+        <div class="eyebrow">WAYWARD VAGRANTS · THE BLACK MARKET</div>
+        <h1>Carpathia Bounty Board</h1>
+        <p class="lede">Open contracts posted by guild members. Anyone can read the board; each contract's details stay with whoever posted it.</p>
+      </div>
+      <div class="actions">
+        <span id="who" class="who" hidden></span>
+        <button id="signin" type="button" class="btn btn-ghost" hidden>Sign in with Google</button>
+        <button id="signout" type="button" class="btn btn-ghost" hidden>Sign out</button>
+        <button id="open-post" type="button" class="btn btn-gold" hidden>Post a bounty</button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="chips" role="group" aria-label="Filter by status" id="chips"></div>
+      <label class="sort">Sort
+        <select id="sort">
+          <option value="newest">Newest</option>
+          <option value="level">Level (high first)</option>
+          <option value="reward">Reward (high first)</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="notice" class="notice" hidden></div>
+    <main id="board" class="board" aria-live="polite"></main>
+
+    <footer class="foot">
+      <p>Bounty summaries live in the guild's shared sheet. Each contract's details live in a private doc in the poster's own Google Drive.</p>
+    </footer>
+  </div>
+
+  <dialog id="post-dialog" class="post-dialog">
+    <form id="post-form" method="dialog">
+      <div class="eyebrow">THE BLACK MARKET</div>
+      <h2>Post a bounty</h2>
+
+      <label>Title
+        <input name="title" required maxlength="80">
+      </label>
+      <div class="row">
+        <label>Level (1–10)
+          <select name="level" required></select>
+        </label>
+        <label>Reward (gold)
+          <input name="reward" type="number" min="0" step="1" required>
+        </label>
+        <label class="grow">Location
+          <input name="location" maxlength="80">
+        </label>
+      </div>
+      <label>Public summary
+        <textarea name="summary" rows="3" maxlength="400" required></textarea>
+        <span class="hint">Shown on the board. Keep spoilers out.</span>
+      </label>
+      <label>Poster art URL (optional)
+        <input name="image" type="url" placeholder="https://…">
+      </label>
+
+      <fieldset class="private">
+        <legend>Private event details</legend>
+        <textarea name="details" rows="6" placeholder="Objective, enemies and their Carpathia tiers, twists, payment…"></textarea>
+        <span class="hint">Saved as a Google Doc in your own Drive. Only you, and any GMs added below, can open it.</span>
+        <label class="check"><input type="checkbox" name="shareGms" checked> Share the doc with guild GMs</label>
+      </fieldset>
+
+      <p id="post-status" class="post-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="btn btn-gold" id="post-submit">Publish to the board</button>
+        <button type="button" class="btn btn-ghost" id="post-cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="card-tpl">
+    <article class="card">
+      <div class="pin" aria-hidden="true"></div>
+      <div class="card-inner">
+        <div class="card-head">
+          <span class="kicker">BOUNTY</span>
+          <span class="stamp"></span>
+        </div>
+        <img class="art" alt="" hidden>
+        <h3 class="card-title"></h3>
+        <div class="level"><span class="level-text"></span><span class="pips" aria-hidden="true"></span></div>
+        <div class="reward"><span class="label">REWARD</span><span class="amount"></span></div>
+        <p class="summary"></p>
+        <div class="meta"><div class="poster"></div><div class="location"></div></div>
+        <div class="card-foot">
+          <span class="private-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="1"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+            Details are private
+          </span>
+          <a class="details-link" target="_blank" rel="noopener noreferrer">Open details</a>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGisLoaded && window.onGisLoaded()"></script>
+</body>
+</html>
