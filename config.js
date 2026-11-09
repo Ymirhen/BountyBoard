@@ -14,5 +14,5 @@ window.BOARD_CONFIG = {
 
   // OAuth client ID from Google Cloud Console (type: Web application).
   // Leave empty to run the board read-only (no sign-in, no hosting).
-  GOOGLE_CLIENT_ID: "",
+  GOOGLE_CLIENT_ID: "1057468511719-60ijafobim2afleic2rf91953o9ld369.apps.googleusercontent.com",
 };
