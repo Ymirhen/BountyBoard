@@ -38,21 +38,23 @@ Bounty Project/                    (Drive folder, owned by the guild lead)
     ├── Failed                     archive
     └── Completed by players       one row per merc per completed bounty
 
-Each GM's own Drive (private)
-├── Bounty module - <title>.json   module source of truth, created by the board
-└── Run sheet - <title> (Doc)      readable GM handout, regenerated on every save
+Each GM's own Drive (private, created by the board on first save)
+└── Carpathia Bounty Board/
+    ├── Module data/               <title>.json, the module the builder loads and saves
+    └── Session modules/           <title> - Session module.pdf, regenerated on every save
 ```
 
 ### Active tab (public)
 
-`id, title, level, reward_gold, status, gm_name, session_time, party_size, location, hook, image_url, created_at, updated_at`
+`id, title, level, initial_reward, final_reward, status, gm_name, session_time, location, hook, image_url, created_at, updated_at`
 
 - `status` is `Open` or `Full`. Closed bounties leave this tab.
+- `initial_reward` is what the posting offers. `final_reward` is what was actually paid, set at close-out.
 - Nothing secret goes here, because the sheet is link-shared as Viewer.
 
 ### Completed / Failed tabs
 
-`id, title, level, reward_gold, gm_name, session_time, party, closed_at, notes`
+`id, title, level, initial_reward, final_reward, gm_name, session_time, party, closed_at, notes`
 
 ### Completed by players tab
 
@@ -62,29 +64,47 @@ Each GM's own Drive (private)
 
 | Section | Contents |
 | --- | --- |
-| On the board (public) | Title, level 1–10, reward, party size, status, session time, location, GM name, poster art URL, hook |
-| Overview | Premise, objective, estimated length, success and failure conditions |
-| Briefing | What the Black Market contact tells the mercs |
+| On the board (public) | Title, level 1–10, initial reward, status, session time, location, GM name, poster art URL, hook |
+| Overview | Premise, objective, success and failure conditions, briefing |
 | Scenes (repeatable) | Name, location, what happens, RP beats, rolls and checks |
-| NPCs (repeatable) | Name, role, motivation, secret |
-| Encounters (repeatable) | Enemy, count, HP, Carpathia Offense 1–3 and Defense 1–3, raid marker, buffs / NDE, tactics. The builder and the run sheet show the D100 tables for the chosen tiers |
+| NPCs (repeatable) | Name, title, portrait URL, HP, raid marker, positive and negative traits, card description, motivation, secret. Optional combat stats: Offense 1–3, Defense 1–3, Heals (level 1–3), Buffs (level 1–3) |
+| Enemies (repeatable) | Name, title, portrait URL, HP, raid marker, Offense 1–3, Defense 1–3, Heals and Buffs toggles with levels, positive and negative traits, card description, tactics. The builder shows the D100 tables for the chosen tiers |
 | Twists and rewards | Complications, items, reputation, GM notes |
-| Outcome (after close-out) | Completed / Failed, party, gold per merc, notes |
+| Outcome (after close-out) | Completed / Failed, final reward, party, gold per merc, notes |
+
+## Unit cards
+
+Every NPC and enemy can be exported as a unit card (1000 × 620 PNG, rendered at 2×):
+- **Left side:** name with its raid marker symbol, `<title>`, the portrait, and level badges (Offense, Defense, plus Healing and Buff when enabled). An NPC with no combat stats is marked as a non-combatant.
+- **Right side:** an NPC / ENEMY tag, HP, Positive and Negative trait columns, and the card description.
+- Trait lines written as "Name: effect" get a bold name. The text shrinks automatically when there are many traits.
+- The icons are original line art.
+
+Portraits only export if the image host allows cross-origin use. `i.ibb.co` direct links are the recommended host.
+
+## Session module PDF
+
+On every save, the module is laid out as a printed one-shot (A4) and saved to the GM's "Session modules" folder:
+- **Cover page:** title, level coins, rewards, GM, session, location, poster art, the posting, and a GM-only notice.
+- **Body:** the overview with objective, success and failure boxes; the briefing as a read-aloud box; scenes with RP beats and roll boxes; the cast and enemies as unit cards with their D100 tables; a healing and buffing reference; twists; rewards; GM notes; and the outcome once closed.
+- Pages are flowed by the board itself: headings stay with what follows, and cards and boxes never split.
+
+"Download PDF" in the builder makes the same PDF locally without saving.
 
 ## Flows
 
 1. **Write and publish:**
    1. The GM signs in and opens Host a new bounty, then fills in the builder and saves.
-   2. The module JSON is saved in the GM's Drive, and the run sheet Doc is created or updated.
+   2. The board folder and its subfolders are created if missing. The module JSON is saved in Module data, and the session module PDF is generated into Session modules.
    3. The card is added to the Active tab, or updated if it's already there.
    4. If the GM isn't a sheet editor, the module is still saved privately, and the board explains that only approved GMs can publish.
 2. **Edit:** the GM opens My bounties, picks a module, edits it and saves. The same three things are updated.
 3. **Mark full:** the GM sets the status to Full and saves. The card's stamp changes.
 4. **Close out:**
-   1. The GM chooses Completed or Failed, lists the party as `Character - Player` lines, and sets gold per merc.
+   1. The GM chooses Completed or Failed, sets the final reward (it defaults to the initial reward), lists the party as `Character - Player` lines, and sets gold per merc.
    2. A row goes to Completed or Failed, and on completion, one row per merc goes to Completed by players.
    3. The card is removed from Active.
-   4. The module and run sheet record the outcome.
+   4. The module and its PDF record the outcome.
 
 ## Privacy and security
 

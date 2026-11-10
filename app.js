@@ -1,23 +1,23 @@
 /* Carpathia Bounty Board: static client for GitHub Pages.
  *
  * Public: reads the "Active" tab of the Bounty Records sheet and shows wanted-poster cards.
- * GMs (signed in with Google):
- *   - write one-shot modules in the builder. Each module is a JSON file in the GM's own Drive
- *     (the source of truth, private to them), plus a generated Google Doc run sheet;
- *   - publish and update the public card (a row in the Active tab);
- *   - close a bounty out, which archives it to Completed/Failed and logs every merc.
- * Who counts as a GM is enforced by Google: only editors of the sheet can write to it. */
+ * GMs (signed in with Google) write one-shot modules. In the GM's own Drive the board keeps:
+ *   Carpathia Bounty Board/
+ *     Module data/       one JSON file per module (the source of truth the builder loads and saves)
+ *     Session modules/   a printable, one-shot style PDF per module, regenerated on every save
+ * Publishing upserts the module's card in the Active tab; closing out archives it to Completed/Failed
+ * and logs every merc. Only editors of the sheet can write to it, which is what makes someone a GM. */
 (function () {
   "use strict";
 
   const CFG = window.BOARD_CONFIG || {};
   const TABS = CFG.TABS || { active: "Active", completed: "Completed", failed: "Failed", players: "Completed by players" };
   const C = window.CARPATHIA;
-  const ACTIVE_COLS = ["id", "title", "level", "reward_gold", "status", "gm_name", "session_time", "party_size",
+  const ACTIVE_COLS = ["id", "title", "level", "initial_reward", "final_reward", "status", "gm_name", "session_time",
     "location", "hook", "image_url", "created_at", "updated_at"];
   const STATUSES = ["All", "Open", "Full"];
   const SCOPES = [
-    "https://www.googleapis.com/auth/drive.file",   // the GM's own module files and run sheets (only files this app created)
+    "https://www.googleapis.com/auth/drive.file",   // the GM's own board folder and files (only files this app created)
     "https://www.googleapis.com/auth/spreadsheets", // publish cards and archive results in the Bounty Records sheet
     "openid", "email", "profile",
   ].join(" ");
@@ -25,15 +25,15 @@
 
   const state = {
     bounties: [], filter: "All", sort: "newest",
-    token: null, user: null, tokenClient: null,
+    token: null, user: null, tokenClient: null, folders: null,
     current: null, // { fileId, module }
+    cardUnit: null,
   };
   const $ = (id) => document.getElementById(id);
 
   // ---------- small helpers ----------
   const safeUrl = (v) => { try { const u = new URL(String(v || "").trim()); return u.protocol === "https:" ? u.href : ""; } catch { return ""; } };
   const toInt = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; };
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const nowIso = () => new Date().toISOString();
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())).replace(/-/g, "").slice(0, 10);
   const el = (tag, props = {}, ...kids) => {
@@ -49,6 +49,12 @@
   };
   function notice(text) { $("notice").textContent = text || ""; $("notice").hidden = !text; }
   function status(id, text, isError) { const s = $(id); s.textContent = text || ""; s.classList.toggle("error", !!isError); }
+  function downloadBlob(blob, name) {
+    const a = el("a", { href: URL.createObjectURL(blob), download: name });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  }
+  const pdfName = (m) => `${(m.public.title || "Untitled bounty").replace(/[\\/:*?"<>|]+/g, "")} - Session module.pdf`;
 
   // ---------- Google API plumbing ----------
   async function api(url, options = {}) {
@@ -66,12 +72,14 @@
     const b = "carpathia" + Math.random().toString(36).slice(2);
     return {
       headers: { "Content-Type": `multipart/related; boundary=${b}` },
-      body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n` +
-        `--${b}\r\nContent-Type: ${bodyType}; charset=UTF-8\r\n\r\n${body}\r\n--${b}--`,
+      body: new Blob([
+        `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: ${bodyType}\r\n\r\n`,
+        body, `\r\n--${b}--`]),
     };
   }
   const DRIVE = "https://www.googleapis.com/drive/v3/files";
   const UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
+  const FOLDER = "application/vnd.google-apps.folder";
   const SHEETS = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(CFG.SHEET_ID)}`;
   const rangeUrl = (r) => `${SHEETS}/values/${encodeURIComponent(r)}`;
 
@@ -93,6 +101,26 @@
       const labels = json.table.cols.map((c) => (c.label || "").trim());
       return json.table.rows.map((r) => Object.fromEntries(labels.map((l, i) => [l, r.c[i] ? (r.c[i].v ?? "") : ""])));
     },
+
+    // The GM's board folder and its two subfolders, created on first use and found again by tag.
+    async folders() {
+      if (state.folders) return state.folders;
+      const find = async (role, parent) => {
+        let q = `mimeType='${FOLDER}' and appProperties has { key='carpathiaFolder' and value='${role}' } and trashed=false`;
+        if (parent) q += ` and '${parent}' in parents`;
+        const data = await api(`${DRIVE}?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id)`);
+        return data.files && data.files[0] ? data.files[0].id : "";
+      };
+      const create = async (name, role, parent) => (await api(`${DRIVE}?fields=id`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, mimeType: FOLDER, appProperties: { carpathiaFolder: role }, ...(parent ? { parents: [parent] } : {}) }),
+      })).id;
+      const root = (await find("root")) || (await create("Carpathia Bounty Board", "root"));
+      const data = (await find("data", root)) || (await create("Module data", "data", root));
+      const pdf = (await find("pdf", root)) || (await create("Session modules", "pdf", root));
+      state.folders = { root, data, pdf };
+      return state.folders;
+    },
     async listModules() {
       const q = encodeURIComponent("appProperties has { key='carpathiaModule' and value='1' } and trashed=false");
       const data = await api(`${DRIVE}?q=${q}&orderBy=modifiedTime desc&pageSize=100&fields=files(id,name,modifiedTime,appProperties)`);
@@ -103,28 +131,34 @@
       return typeof text === "string" ? JSON.parse(text) : text;
     },
     async saveModule(fileId, m) {
+      const { data } = await this.folders();
       const meta = {
-        name: `Bounty module - ${m.public.title}.json`,
-        appProperties: { carpathiaModule: "1", moduleId: m.id, status: m.public.status, title: m.public.title.slice(0, 60) },
+        name: `${m.public.title || "Untitled bounty"}.json`,
+        appProperties: { carpathiaModule: "1", moduleId: m.id, status: m.public.status, title: (m.public.title || "").slice(0, 60) },
       };
       const body = JSON.stringify(m, null, 2);
       if (fileId) {
-        const mp = multipart(meta, body, "application/json");
-        await api(`${UPLOAD}/${fileId}?uploadType=multipart&fields=id`, { method: "PATCH", ...mp });
+        // Move older modules (saved before folders existed) into Module data.
+        const { parents = [] } = await api(`${DRIVE}/${fileId}?fields=parents`);
+        const move = parents.includes(data) ? "" : `&addParents=${data}&removeParents=${parents.join(",")}`;
+        await api(`${UPLOAD}/${fileId}?uploadType=multipart&fields=id${move}`, { method: "PATCH", ...multipart(meta, body, "application/json") });
         return fileId;
       }
-      const mp = multipart({ ...meta, mimeType: "application/json" }, body, "application/json");
-      return (await api(`${UPLOAD}?uploadType=multipart&fields=id`, { method: "POST", ...mp })).id;
+      return (await api(`${UPLOAD}?uploadType=multipart&fields=id`, {
+        method: "POST", ...multipart({ ...meta, mimeType: "application/json", parents: [data] }, body, "application/json"),
+      })).id;
     },
-    async saveRunSheet(docId, m) {
-      const meta = { name: `Run sheet - ${m.public.title}` };
-      const html = runSheetHtml(m);
-      if (docId) {
-        const mp = multipart(meta, html, "text/html");
-        return api(`${UPLOAD}/${docId}?uploadType=multipart&fields=id,webViewLink`, { method: "PATCH", ...mp });
+    async savePdf(pdfId, m, blob) {
+      const { pdf } = await this.folders();
+      const meta = { name: pdfName(m) };
+      if (pdfId) {
+        try {
+          return await api(`${UPLOAD}/${pdfId}?uploadType=multipart&fields=id,webViewLink`, { method: "PATCH", ...multipart(meta, blob, "application/pdf") });
+        } catch (err) { if (err.status !== 404) throw err; } // deleted by the GM: make a new one
       }
-      const mp = multipart({ ...meta, mimeType: "application/vnd.google-apps.document" }, html, "text/html");
-      return api(`${UPLOAD}?uploadType=multipart&fields=id,webViewLink`, { method: "POST", ...mp });
+      return api(`${UPLOAD}?uploadType=multipart&fields=id,webViewLink`, {
+        method: "POST", ...multipart({ ...meta, mimeType: "application/pdf", parents: [pdf] }, blob, "application/pdf"),
+      });
     },
     async findActiveRow(id) {
       const data = await api(rangeUrl(`${TABS.active}!A1:A`));
@@ -138,9 +172,7 @@
         await api(`${rangeUrl(`${TABS.active}!A${n}:M${n}`)}?valueInputOption=RAW`, {
           method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values: [row] }),
         });
-      } else {
-        await this.append(TABS.active, [row]);
-      }
+      } else await this.append(TABS.active, [row]);
     },
     async append(tab, rows) {
       await api(`${rangeUrl(`${tab}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
@@ -162,18 +194,19 @@
   const demo_ = (() => {
     const files = new Map();
     const sheet = { active: [
-      { id: "d1", title: "The Ledger Thief", level: 3, reward_gold: 150, status: "Open", gm_name: "Sample GM", session_time: "Sat, 21:00 ST", party_size: "3–5", location: "Dockside district", hook: "A Black Market ledger went missing with someone who shouldn't have it.", created_at: "2026-11-01" },
-      { id: "d2", title: "Ashen Toll Collector", level: 6, reward_gold: 750, status: "Open", gm_name: "Sample GM", session_time: "Sun, 20:00 ST", party_size: "4–6", location: "Burned crossroads", hook: "Someone is taxing the road in our name. Find out who, and make it stop.", created_at: "2026-11-03" },
-      { id: "d3", title: "The Silent Courier", level: 5, reward_gold: 400, status: "Full", gm_name: "Sample GM", session_time: "Fri, 21:30 ST", party_size: "4", location: "Mountain pass road", hook: "A courier vanished with a sealed crate. Bring back the crate. The courier is optional.", created_at: "2026-11-02" },
+      { id: "d1", title: "The Ledger Thief", level: 3, initial_reward: 150, status: "Open", gm_name: "Sample GM", session_time: "Sat, 21:00 ST", location: "Dockside district", hook: "A Black Market ledger went missing with someone who shouldn't have it.", created_at: "2026-11-01" },
+      { id: "d2", title: "Ashen Toll Collector", level: 6, initial_reward: 750, status: "Open", gm_name: "Sample GM", session_time: "Sun, 20:00 ST", location: "Burned crossroads", hook: "Someone is taxing the road in our name. Find out who, and make it stop.", created_at: "2026-11-03" },
+      { id: "d3", title: "The Silent Courier", level: 5, initial_reward: 400, status: "Full", gm_name: "Sample GM", session_time: "Fri, 21:30 ST", location: "Mountain pass road", hook: "A courier vanished with a sealed crate. Bring back the crate. The courier is optional.", created_at: "2026-11-02" },
     ], completed: [], failed: [], players: [] };
+    window.__demoSheet = sheet;
     return {
       async readActive() { return sheet.active.slice(); },
       async listModules() { return [...files.entries()].map(([fileId, m]) => ({ fileId, title: m.public.title, status: m.public.status, modified: m.updatedAt })); },
       async loadModule(fileId) { return JSON.parse(JSON.stringify(files.get(fileId))); },
       async saveModule(fileId, m) { const id = fileId || "f" + newId(); files.set(id, JSON.parse(JSON.stringify(m))); return id; },
-      async saveRunSheet(docId) { return { id: docId || "doc" + newId(), webViewLink: "#" }; },
+      async savePdf(pdfId, m, blob) { window.__demoPdf = blob; return { id: pdfId || "pdf" + newId(), webViewLink: URL.createObjectURL(blob) }; },
       async upsertCard(m) { const r = Object.fromEntries(ACTIVE_COLS.map((c, i) => [c, cardRow(m)[i]])); const i = sheet.active.findIndex((x) => x.id === m.id); if (i >= 0) sheet.active[i] = r; else sheet.active.push(r); },
-      async append(tab, rows) { const key = Object.keys(TABS).find((k) => TABS[k] === tab); sheet[key].push(...rows); console.log("[demo] append", tab, rows); },
+      async append(tab, rows) { const key = Object.keys(TABS).find((k) => TABS[k] === tab); sheet[key].push(...rows); },
       async removeCard(id) { sheet.active = sheet.active.filter((x) => x.id !== id); },
     };
   })();
@@ -183,81 +216,173 @@
   // ---------- module model ----------
   function blankModule() {
     return {
-      version: 1, id: newId(), createdAt: nowIso(), updatedAt: nowIso(), docId: "", docUrl: "", published: false, closed: null,
-      public: { title: "", level: 1, reward: 0, partySize: "", status: "Open", session: "", location: "", gmName: rememberedGmName(), imageUrl: "", hook: "" },
-      overview: { premise: "", objective: "", duration: "", success: "", failure: "" },
-      briefing: "", scenes: [], npcs: [], encounters: [], twists: "", rewards: { items: "", reputation: "" }, gmNotes: "",
+      version: 2, id: newId(), createdAt: nowIso(), updatedAt: nowIso(), pdfId: "", pdfUrl: "", published: false, closed: null,
+      public: { title: "", level: 1, initialReward: 0, finalReward: "", status: "Open", session: "", location: "", gmName: rememberedGmName(), imageUrl: "", hook: "" },
+      overview: { premise: "", objective: "", success: "", failure: "" },
+      briefing: "", scenes: [], npcs: [], enemies: [], twists: "", rewards: { items: "", reputation: "" }, gmNotes: "",
     };
+  }
+  // Upgrade modules saved by the first version of the builder.
+  function migrate(m) {
+    if (m.version >= 2) return m;
+    const p = m.public || {};
+    m.public = { ...p, initialReward: p.initialReward ?? p.reward ?? 0, finalReward: p.finalReward ?? "" };
+    delete m.public.reward; delete m.public.partySize;
+    if (m.overview) delete m.overview.duration;
+    m.npcs = (m.npcs || []).map((n) => ({ name: n.name, title: n.role, motivation: n.motivation, secret: n.secret, combat: false }));
+    m.enemies = (m.encounters || []).map((e) => ({ name: e.name, hp: e.hp, offense: e.offense, defense: e.defense, marker: e.marker, positive: e.buffs, notes: e.notes }));
+    delete m.encounters;
+    if (m.docId) { m.legacyDocId = m.docId; delete m.docId; delete m.docUrl; }
+    m.version = 2;
+    return m;
   }
   function rememberedGmName() { try { return localStorage.getItem("carpathia.gmName") || ""; } catch { return ""; } }
   function rememberGmName(v) { try { localStorage.setItem("carpathia.gmName", v); } catch { /* storage unavailable */ } }
   function cardRow(m) {
     const p = m.public;
-    return [m.id, p.title, p.level, p.reward, p.status, p.gmName, p.session, p.partySize, p.location, p.hook, safeUrl(p.imageUrl), m.createdAt, m.updatedAt];
+    return [m.id, p.title, p.level, p.initialReward, p.finalReward ?? "", p.status, p.gmName, p.session, p.location, p.hook, safeUrl(p.imageUrl), m.createdAt, m.updatedAt];
   }
 
-  // ---------- repeatable sections ----------
-  const REPEATERS = {
-    scenes: { label: "Scene", fields: [
-      ["name", "Scene name", "text"], ["location", "Location", "text"],
-      ["description", "What happens", "area"], ["beats", "RP beats", "area"], ["rolls", "Rolls and checks", "area"]] },
-    npcs: { label: "NPC", fields: [
-      ["name", "Name", "text"], ["role", "Role", "text"], ["motivation", "Motivation", "area"], ["secret", "Secret", "area"]] },
-    encounters: { label: "Enemy", fields: [
-      ["name", "Enemy", "text"], ["count", "Count", "number"], ["hp", "HP each", "number"],
-      ["offense", "Offense level", "tier"], ["defense", "Defense level", "tier"], ["marker", "Raid marker", "marker"],
-      ["buffs", "Buffs / NDE", "area"], ["notes", "Tactics and notes", "area"]] },
-  };
+  // ---------- scenes ----------
+  const SCENE_FIELDS = [["name", "Scene name", "text"], ["location", "Location", "text"],
+    ["description", "What happens", "area"], ["beats", "RP beats", "area"], ["rolls", "Rolls and checks", "area"]];
 
-  function fieldInput(name, type, value) {
-    if (type === "area") return el("textarea", { "data-field": name, rows: 2 }, String(value ?? ""));
-    if (type === "tier" || type === "marker") {
-      const opts = type === "tier" ? ["1", "2", "3"] : C.markers;
-      const s = el("select", { "data-field": name }, opts.map((o) => el("option", { value: o, text: o || "None" })));
-      s.value = String(value || (type === "tier" ? "1" : ""));
-      return s;
+  function input(name, type, value, extra = {}) {
+    if (type === "area") return el("textarea", { "data-field": name, rows: extra.rows || 2, placeholder: extra.placeholder }, String(value ?? ""));
+    if (type === "check") { const c = el("input", { type: "checkbox", "data-field": name }); c.checked = !!value; return c; }
+    if (type === "tier") {
+      const s = el("select", { "data-field": name }, ["1", "2", "3"].map((o) => el("option", { value: o, text: o })));
+      s.value = String(value || "1"); return s;
     }
-    return el("input", { "data-field": name, type: type === "number" ? "number" : "text", min: type === "number" ? "0" : null, value: value ?? "" });
+    if (type === "marker") {
+      const s = el("select", { "data-field": name }, C.markers.map(([n, sym]) => el("option", { value: n, text: n ? `${sym} ${n}` : "None" })));
+      s.value = value || ""; return s;
+    }
+    return el("input", { "data-field": name, type: type === "number" ? "number" : type === "url" ? "url" : "text", min: type === "number" ? "0" : null, placeholder: extra.placeholder, value: value ?? "" });
+  }
+  const field = (label, node, cls) => el("label", { class: cls || "" }, label, node);
+
+  function itemShell(listName, label) {
+    const item = el("div", { class: "item" });
+    const head = el("div", { class: "item-head" }, el("span", { class: "item-title" }));
+    const tools = el("div", { class: "item-tools" });
+    head.append(tools);
+    tools.append(el("button", { type: "button", class: "link-btn", text: "Remove", onclick: () => { item.remove(); renumber(listName, label); } }));
+    item.append(head);
+    return { item, tools };
+  }
+  function renumber(listName, label) {
+    document.querySelectorAll(`[data-list="${listName}"] .item-title`).forEach((t, i) => { t.textContent = `${label} ${i + 1}`; });
   }
 
-  function tierTables(item) {
-    const o = item.querySelector('[data-field="offense"]').value;
-    const d = item.querySelector('[data-field="defense"]').value;
+  function addScene(v = {}) {
+    const { item } = itemShell("scenes", "Scene");
+    item.append(el("div", { class: "item-grid" }, SCENE_FIELDS.map(([n, l, t]) => field(l, input(n, t, v[n]), t === "area" ? "wide" : ""))));
+    document.querySelector('[data-list="scenes"]').append(item);
+    renumber("scenes", "Scene");
+  }
+
+  // ---------- NPCs and enemies (units) ----------
+  function tierTables(get) {
+    const o = get("offense"), d = get("defense");
     const table = (title, rows, hint) => el("div", { class: "tier" },
-      el("div", { class: "tier-title", text: title }), el("div", { class: "tier-hint", text: hint }),
+      el("div", { class: "tier-title", text: title }), hint ? el("div", { class: "tier-hint", text: hint }) : null,
       el("table", {}, el("tbody", {}, rows.map(([r, out]) => el("tr", {}, el("td", { text: r }), el("td", { text: out }))))));
-    return [
+    const out = [
       table(`Players attack it: Offense ${o}`, C.offense[o], C.tierHints.offense[o]),
       table(`It attacks players: Defense ${d}`, C.defense[d], C.tierHints.defense[d]),
     ];
+    if (get("healing")) out.push(table(`Healing (level ${get("healingLevel")})`, C.healing, "Carpathia healing roll"));
+    if (get("buff")) out.push(table(`Buff (level ${get("buffLevel")})`, C.buffing, "Carpathia buffing roll"));
+    return out;
   }
 
-  function addItem(listName, values = {}) {
-    const def = REPEATERS[listName];
-    const list = document.querySelector(`[data-list="${listName}"]`);
-    const item = el("div", { class: "item" });
-    const head = el("div", { class: "item-head" },
-      el("span", { class: "item-title" }),
-      el("button", { type: "button", class: "link-btn", text: "Remove", onclick: () => { item.remove(); renumber(listName); } }));
-    const grid = el("div", { class: "item-grid" }, def.fields.map(([name, label, type]) =>
-      el("label", { class: type === "area" ? "wide" : "" }, label, fieldInput(name, type, values[name]))));
-    item.append(head, grid);
-    if (listName === "encounters") {
-      const tables = el("div", { class: "tiers" });
-      const refresh = () => tables.replaceChildren(...tierTables(item));
-      item.querySelectorAll('[data-field="offense"],[data-field="defense"]').forEach((s) => s.addEventListener("change", refresh));
-      item.append(tables);
-      refresh();
+  function readUnit(item) {
+    const u = {};
+    item.querySelectorAll("[data-field]").forEach((f) => { u[f.dataset.field] = f.type === "checkbox" ? f.checked : f.value.trim(); });
+    return u;
+  }
+
+  function addUnit(kind, v = {}) {
+    const listName = kind === "enemy" ? "enemies" : "npcs";
+    const label = kind === "enemy" ? "Enemy" : "NPC";
+    const { item, tools } = itemShell(listName, label);
+    item.dataset.kind = kind;
+    tools.prepend(el("button", { type: "button", class: "link-btn", text: "Unit card", onclick: () => openCard(readUnit(item), kind) }));
+
+    item.append(el("div", { class: "item-grid" },
+      field("Name", input("name", "text", v.name)),
+      field(kind === "enemy" ? "Title (e.g. Bloodsail Captain)" : "Title / role", input("title", "text", v.title)),
+      field("Portrait image URL", input("imageUrl", "url", v.imageUrl, { placeholder: "https://i.ibb.co/…/portrait.png" }), "span2"),
+      field("HP", input("hp", "number", v.hp)),
+      field("Raid marker", input("marker", "marker", v.marker))));
+
+    const combat = el("div", { class: "combat" });
+    if (kind === "npc") {
+      const toggle = input("combat", "check", v.combat);
+      item.append(el("label", { class: "check" }, toggle, "Has combat stats (Offense / Defense, healing, buffs)"));
+      const sync = () => { combat.hidden = !toggle.checked; };
+      toggle.addEventListener("change", sync);
+      queueMicrotask(sync);
     }
-    list.append(item);
-    renumber(listName);
+    const healing = input("healing", "check", v.healing), healingLevel = input("healingLevel", "tier", v.healingLevel);
+    const buff = input("buff", "check", v.buff), buffLevel = input("buffLevel", "tier", v.buffLevel);
+    combat.append(el("div", { class: "item-grid" },
+      field("Offense level", input("offense", "tier", v.offense)),
+      field("Defense level", input("defense", "tier", v.defense)),
+      el("div", { class: "toggle-level" }, el("label", { class: "check" }, healing, "Heals"), field("Healing level", healingLevel)),
+      el("div", { class: "toggle-level" }, el("label", { class: "check" }, buff, "Buffs"), field("Buff level", buffLevel))));
+    const tables = el("div", { class: "tiers" });
+    combat.append(tables);
+    item.append(combat);
+
+    item.append(el("div", { class: "item-grid" },
+      field("Positive traits (one per line, \"Name: effect\")", input("positive", "area", v.positive, { rows: 3 }), "half"),
+      field("Negative traits (one per line, \"Name: effect\")", input("negative", "area", v.negative, { rows: 3 }), "half"),
+      field("Card description (shown on the unit card)", input("description", "area", v.description), "wide"),
+      ...(kind === "npc"
+        ? [field("Motivation (GM only)", input("motivation", "area", v.motivation), "half"), field("Secret (GM only)", input("secret", "area", v.secret), "half")]
+        : [field("Tactics and notes (GM only)", input("notes", "area", v.notes), "wide")])));
+
+    const refresh = () => {
+      const get = (n) => { const f = item.querySelector(`[data-field="${n}"]`); return f.type === "checkbox" ? f.checked : f.value; };
+      healingLevel.disabled = !healing.checked; buffLevel.disabled = !buff.checked;
+      tables.replaceChildren(...tierTables(get));
+    };
+    item.querySelectorAll('[data-field="offense"],[data-field="defense"],[data-field="healing"],[data-field="buff"],[data-field="healingLevel"],[data-field="buffLevel"]')
+      .forEach((s) => s.addEventListener("change", refresh));
+    refresh();
+
+    document.querySelector(`[data-list="${listName}"]`).append(item);
+    renumber(listName, label);
   }
-  function renumber(listName) {
-    document.querySelectorAll(`[data-list="${listName}"] .item-title`).forEach((t, i) => { t.textContent = `${REPEATERS[listName].label} ${i + 1}`; });
+
+  // ---------- unit card dialog ----------
+  function openCard(unit, kind) {
+    state.cardUnit = { unit, kind };
+    const preview = $("card-preview");
+    const card = window.UnitCard.render(unit, kind);
+    const holder = el("div", { class: "card-scale" }, card);
+    preview.replaceChildren(holder);
+    status("card-status", "");
+    $("card-dialog").showModal();
+    const fit = () => {
+      const s = Math.min(1, preview.clientWidth / 1000);
+      card.style.transform = `scale(${s})`;
+      holder.style.height = `${620 * s}px`;
+    };
+    requestAnimationFrame(fit);
   }
-  function collectList(listName) {
-    return [...document.querySelectorAll(`[data-list="${listName}"] .item`)].map((item) =>
-      Object.fromEntries([...item.querySelectorAll("[data-field]")].map((f) => [f.dataset.field, f.value.trim()])));
+  async function downloadCard() {
+    const { unit, kind } = state.cardUnit;
+    const btn = $("card-download"); btn.disabled = true;
+    try {
+      status("card-status", "Rendering…");
+      const ok = await window.UnitCard.download(unit, kind);
+      status("card-status", ok ? "Downloaded." : "Downloaded, but the portrait host doesn't allow exporting, so the image may be blank. Try an i.ibb.co direct link.", !ok);
+    } catch (err) {
+      status("card-status", `Couldn't render the card: ${err.message}`, true);
+    } finally { btn.disabled = false; }
   }
 
   // ---------- editor ----------
@@ -265,36 +390,44 @@
     const f = $("editor");
     const p = m.public;
     const set = (n, v) => { if (f.elements[n]) f.elements[n].value = v ?? ""; };
-    ["title", "partySize", "session", "location", "gmName", "imageUrl", "hook"].forEach((k) => set(k, p[k]));
-    set("level", String(p.level || 1)); set("reward", p.reward); set("status", p.status === "Full" ? "Full" : "Open");
-    Object.entries(m.overview).forEach(([k, v]) => set(k, v));
-    set("briefing", m.briefing); set("twists", m.twists); set("items", m.rewards.items); set("reputation", m.rewards.reputation); set("gmNotes", m.gmNotes);
-    Object.keys(REPEATERS).forEach((name) => {
-      document.querySelector(`[data-list="${name}"]`).replaceChildren();
-      (m[name] || []).forEach((v) => addItem(name, v));
-    });
+    ["title", "session", "location", "gmName", "imageUrl", "hook"].forEach((k) => set(k, p[k]));
+    set("level", String(p.level || 1)); set("initialReward", p.initialReward); set("status", p.status === "Full" ? "Full" : "Open");
+    ["premise", "objective", "success", "failure"].forEach((k) => set(k, (m.overview || {})[k]));
+    set("briefing", m.briefing); set("twists", m.twists); set("items", (m.rewards || {}).items); set("reputation", (m.rewards || {}).reputation); set("gmNotes", m.gmNotes);
+    ["scenes", "npcs", "enemies"].forEach((n) => document.querySelector(`[data-list="${n}"]`).replaceChildren());
+    (m.scenes || []).forEach((v) => addScene(v));
+    (m.npcs || []).forEach((v) => addUnit("npc", v));
+    (m.enemies || []).forEach((v) => addUnit("enemy", v));
     $("editor-title").textContent = p.title || "New bounty";
-    const doc = safeUrl(m.docUrl);
-    $("open-doc").hidden = !doc; if (doc) $("open-doc").href = doc;
+    const pdf = m.pdfUrl && (DEMO || safeUrl(m.pdfUrl)) ? m.pdfUrl : "";
+    $("open-pdf").hidden = !pdf; if (pdf) $("open-pdf").href = pdf;
     $("close-out").hidden = !m.published || !!m.closed;
     $("save").textContent = m.closed ? "Save changes" : "Save and publish";
-    status("save-status", m.closed ? `This bounty was closed out as ${m.closed.outcome}. Edits update your run sheet only.` : "");
+    status("save-status", m.closed ? `This bounty was closed out as ${m.closed.outcome}. Edits update your files only.` : "");
   }
 
   function readEditor(m) {
     const f = $("editor").elements;
     const v = (n) => String(f[n].value || "").trim();
     m.public = {
-      title: v("title"), level: Math.min(10, Math.max(1, toInt(v("level"), 1))), reward: Math.max(0, toInt(v("reward"), 0)),
-      partySize: v("partySize"), status: m.closed ? m.closed.outcome : v("status"), session: v("session"),
+      title: v("title"), level: Math.min(10, Math.max(1, toInt(v("level"), 1))), initialReward: Math.max(0, toInt(v("initialReward"), 0)),
+      finalReward: m.public.finalReward ?? "", status: m.closed ? m.closed.outcome : v("status"), session: v("session"),
       location: v("location"), gmName: v("gmName"), imageUrl: v("imageUrl"), hook: v("hook"),
     };
-    m.overview = { premise: v("premise"), objective: v("objective"), duration: v("duration"), success: v("success"), failure: v("failure") };
+    m.overview = { premise: v("premise"), objective: v("objective"), success: v("success"), failure: v("failure") };
     m.briefing = v("briefing"); m.twists = v("twists"); m.gmNotes = v("gmNotes");
     m.rewards = { items: v("items"), reputation: v("reputation") };
-    Object.keys(REPEATERS).forEach((name) => { m[name] = collectList(name); });
+    m.scenes = [...document.querySelectorAll('[data-list="scenes"] .item')].map(readUnit);
+    m.npcs = [...document.querySelectorAll('[data-list="npcs"] .item')].map(readUnit);
+    m.enemies = [...document.querySelectorAll('[data-list="enemies"] .item')].map(readUnit);
     m.updatedAt = nowIso();
     return m;
+  }
+
+  async function refreshPdf(m) {
+    const blob = await window.ModulePdf.toBlob(m);
+    const file = await backend.savePdf(m.pdfId, m, blob);
+    m.pdfId = file.id; m.pdfUrl = file.webViewLink || m.pdfUrl;
   }
 
   async function onSave(e) {
@@ -303,35 +436,37 @@
     if (!m.public.title || !m.public.gmName) { status("save-status", "A title and your GM name are needed before publishing.", true); return; }
     rememberGmName(m.public.gmName);
     const btn = $("save"); btn.disabled = true;
+    const warnings = [];
     try {
       status("save-status", "Saving the module to your Drive…");
       state.current.fileId = await backend.saveModule(state.current.fileId, m);
-      status("save-status", "Updating your run sheet…");
-      const doc = await backend.saveRunSheet(m.docId, m);
-      m.docId = doc.id; m.docUrl = doc.webViewLink || m.docUrl;
+      status("save-status", "Laying out the session module PDF…");
+      try { await refreshPdf(m); } catch (err) { console.warn(err); warnings.push(`the PDF couldn't be made (${err.message})`); }
       if (!m.closed) {
         status("save-status", "Publishing the card to the board…");
-        try {
-          await backend.upsertCard(m);
-          m.published = true;
-        } catch (err) {
-          await backend.saveModule(state.current.fileId, m);
-          fillEditor(m);
-          status("save-status", err.status === 403
-            ? "Saved to your Drive, but you can't publish to the board yet. Only approved GMs can; ask an officer to add your Google account as an editor of the Bounty Records sheet."
-            : `Saved to your Drive, but publishing failed: ${err.message}`, true);
-          return;
+        try { await backend.upsertCard(m); m.published = true; } catch (err) {
+          warnings.push(err.status === 403
+            ? "you can't publish to the board yet. Only approved GMs can; ask an officer to add your Google account as an editor of the Bounty Records sheet"
+            : `publishing failed (${err.message})`);
         }
       }
       await backend.saveModule(state.current.fileId, m);
       fillEditor(m);
-      status("save-status", m.closed ? "Saved." : "Saved and published.");
+      status("save-status", warnings.length ? `Saved to your Drive, but ${warnings.join("; and ")}.` : (m.closed ? "Saved." : "Saved and published."), warnings.length > 0);
       loadBoard();
     } catch (err) {
       status("save-status", `Save failed: ${err.message}`, true);
-    } finally {
-      btn.disabled = false;
-    }
+    } finally { btn.disabled = false; }
+  }
+
+  async function onDownloadPdf() {
+    const m = readEditor(JSON.parse(JSON.stringify(state.current.module)));
+    const btn = $("download-pdf"); btn.disabled = true;
+    try {
+      status("save-status", "Laying out the session module PDF…");
+      downloadBlob(await window.ModulePdf.toBlob(m), pdfName(m));
+      status("save-status", "PDF downloaded. It hasn't been saved to Drive; use Save for that.");
+    } catch (err) { status("save-status", `Couldn't make the PDF: ${err.message}`, true); } finally { btn.disabled = false; }
   }
 
   // ---------- close out ----------
@@ -339,7 +474,8 @@
     const f = $("closeout-form");
     f.reset();
     const p = state.current.module.public;
-    f.elements.goldEach.value = p.reward || "";
+    f.elements.finalReward.value = p.initialReward ?? "";
+    f.elements.goldEach.value = "";
     status("closeout-status", "");
     $("closeout-dialog").showModal();
   }
@@ -348,6 +484,7 @@
     e.preventDefault();
     const f = $("closeout-form").elements;
     const outcome = f.outcome.value;
+    const finalReward = Math.max(0, toInt(f.finalReward.value, 0));
     const goldEach = Math.max(0, toInt(f.goldEach.value, 0));
     const notes = String(f.notes.value || "").trim();
     const party = String(f.party.value || "").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
@@ -362,7 +499,7 @@
       status("closeout-status", "Filing the result…");
       const partyText = party.map((x) => x.player ? `${x.character} (${x.player})` : x.character).join(", ");
       await backend.append(outcome === "Completed" ? TABS.completed : TABS.failed,
-        [[m.id, p.title, p.level, p.reward, p.gmName, p.session, partyText, nowIso(), notes]]);
+        [[m.id, p.title, p.level, p.initialReward, finalReward, p.gmName, p.session, partyText, nowIso(), notes]]);
       if (outcome === "Completed" && party.length) {
         status("closeout-status", "Logging the mercs…");
         await backend.append(TABS.players, party.map((x) => [x.character, x.player, m.id, p.title, p.level, goldEach, date]));
@@ -370,10 +507,10 @@
       status("closeout-status", "Taking the card off the board…");
       await backend.removeCard(m.id);
       m.closed = { outcome, at: nowIso(), party, goldEach, notes };
-      p.status = outcome;
+      p.status = outcome; p.finalReward = finalReward;
       await backend.saveModule(state.current.fileId, m);
-      const doc = await backend.saveRunSheet(m.docId, m);
-      m.docId = doc.id;
+      status("closeout-status", "Updating the session module PDF…");
+      try { await refreshPdf(m); await backend.saveModule(state.current.fileId, m); } catch (err) { console.warn(err); }
       $("closeout-dialog").close();
       fillEditor(m);
       notice(`"${p.title}" closed out as ${outcome}.`);
@@ -382,38 +519,7 @@
       status("closeout-status", err.status === 403
         ? "You don't have edit access to the Bounty Records sheet. Ask an officer."
         : `Close-out failed: ${err.message}. Check the sheet before retrying, part of it may have been saved.`, true);
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  // ---------- run sheet (generated Google Doc) ----------
-  function runSheetHtml(m) {
-    const p = m.public;
-    const para = (t) => String(t || "").split("\n").map((l) => `<p>${esc(l)}</p>`).join("") || "<p></p>";
-    const kv = (k, v) => v ? `<p><b>${esc(k)}:</b> ${esc(v)}</p>` : "";
-    const tierTable = (title, rows) => `<p><b>${esc(title)}</b></p><table border="1" cellpadding="4">${rows.map(([r, o]) => `<tr><td>${esc(r)}</td><td>${esc(o)}</td></tr>`).join("")}</table>`;
-    return `<html><body>
-<p><i>Generated by the Carpathia Bounty Board. Edit this module on the board, because changes made here are overwritten on the next save. Keep this doc private.</i></p>
-<h1>${esc(p.title)}</h1>
-${kv("Status", p.status)}${kv("Level", p.level)}${kv("Reward", `${p.reward} gold`)}${kv("Party size", p.partySize)}${kv("Session", p.session)}${kv("Location", p.location)}${kv("GM", p.gmName)}
-<h2>Hook (public)</h2>${para(p.hook)}
-<h2>Overview</h2>${kv("Objective", m.overview.objective)}${kv("Estimated length", m.overview.duration)}${kv("Success", m.overview.success)}${kv("Failure", m.overview.failure)}
-<h3>Premise</h3>${para(m.overview.premise)}
-<h2>Briefing</h2>${para(m.briefing)}
-<h2>Scenes</h2>${m.scenes.map((s, i) => `<h3>${i + 1}. ${esc(s.name || "Scene")}</h3>${kv("Location", s.location)}${para(s.description)}${s.beats ? `<p><b>RP beats</b></p>${para(s.beats)}` : ""}${s.rolls ? `<p><b>Rolls and checks</b></p>${para(s.rolls)}` : ""}`).join("") || "<p>None yet.</p>"}
-<h2>NPCs</h2>${m.npcs.map((n) => `<h3>${esc(n.name || "NPC")}</h3>${kv("Role", n.role)}${kv("Motivation", n.motivation)}${kv("Secret", n.secret)}`).join("") || "<p>None yet.</p>"}
-<h2>Encounters</h2>${m.encounters.map((x) => {
-      const o = x.offense || "1", d = x.defense || "1";
-      return `<h3>${esc(x.name || "Enemy")}${x.count ? ` ×${esc(x.count)}` : ""}${x.marker ? ` {${esc(x.marker)}}` : ""}</h3>
-${kv("HP each", x.hp)}${kv("Offense / Defense", `O${o} / D${d}`)}${kv("Buffs / NDE", x.buffs)}${kv("Tactics", x.notes)}
-${tierTable(`Players attack it (Offense ${o})`, C.offense[o])}${tierTable(`It attacks players (Defense ${d})`, C.defense[d])}`;
-    }).join("") || "<p>None yet.</p>"}
-<h2>Twists and complications</h2>${para(m.twists)}
-<h2>Rewards</h2>${kv("Gold", `${p.reward}`)}${kv("Items", m.rewards.items)}${kv("Reputation / other", m.rewards.reputation)}
-<h2>GM notes</h2>${para(m.gmNotes)}
-${m.closed ? `<h2>Outcome: ${esc(m.closed.outcome)}</h2>${kv("Closed", m.closed.at.slice(0, 10))}${kv("Party", m.closed.party.map((x) => x.player ? `${x.character} (${x.player})` : x.character).join(", "))}${kv("Gold per merc", m.closed.goldEach)}${para(m.closed.notes)}` : ""}
-</body></html>`;
+    } finally { btn.disabled = false; }
   }
 
   // ---------- public board ----------
@@ -421,10 +527,9 @@ ${m.closed ? `<h2>Outcome: ${esc(m.closed.outcome)}</h2>${kv("Closed", m.closed.
     const s = String(r.status || "Open").trim().toLowerCase();
     return {
       id: String(r.id || ""), title: String(r.title || ""), hook: String(r.hook || ""),
-      level: Math.min(10, Math.max(1, toInt(r.level, 1))), reward: Math.max(0, toInt(r.reward_gold, 0)),
+      level: Math.min(10, Math.max(1, toInt(r.level, 1))), reward: Math.max(0, toInt(r.initial_reward ?? r.reward_gold, 0)),
       status: s === "full" ? "Full" : "Open", gm: String(r.gm_name || ""), session: String(r.session_time || ""),
-      party: String(r.party_size || ""), location: String(r.location || ""), image: safeUrl(r.image_url),
-      created: String(r.created_at || ""),
+      location: String(r.location || ""), image: safeUrl(r.image_url), created: String(r.created_at || ""),
     };
   }
 
@@ -463,9 +568,12 @@ ${m.closed ? `<h2>Outcome: ${esc(m.closed.outcome)}</h2>${kv("Closed", m.closed.
       q(".pips").replaceChildren(...Array.from({ length: 10 }, (_, i) => el("i", { class: i < b.level ? "on" : "" })));
       q(".amount").textContent = `${b.reward.toLocaleString("en-US")} g`;
       q(".summary").textContent = b.hook;
-      q(".facts").replaceChildren(...[["GM", b.gm], ["When", b.session], ["Party", b.party], ["Where", b.location]]
+      q(".facts").replaceChildren(...[["GM", b.gm], ["When", b.session], ["Where", b.location]]
         .filter(([, v]) => v).flatMap(([k, v]) => [el("dt", { text: k }), el("dd", { text: v })]));
-      if (b.image) { const img = q(".art"); img.src = b.image; img.hidden = false; img.alt = `Poster art for ${b.title}`; }
+      if (b.image) {
+        const img = q(".art"); img.src = b.image; img.hidden = false; img.alt = `Poster art for ${b.title}`;
+        img.addEventListener("error", () => { img.hidden = true; }, { once: true });
+      }
       return node;
     }));
   }
@@ -488,7 +596,7 @@ ${m.closed ? `<h2>Outcome: ${esc(m.closed.outcome)}</h2>${kv("Closed", m.closed.
 
   async function openModule(fileId) {
     try {
-      const m = await backend.loadModule(fileId);
+      const m = migrate(await backend.loadModule(fileId));
       state.current = { fileId, module: m };
       show("editor");
       fillEditor(m);
@@ -527,7 +635,7 @@ ${m.closed ? `<h2>Outcome: ${esc(m.closed.outcome)}</h2>${kv("Closed", m.closed.
   };
   function signOut() {
     if (state.token && window.google) google.accounts.oauth2.revoke(state.token, () => {});
-    state.token = null; state.user = null; state.current = null;
+    state.token = null; state.user = null; state.current = null; state.folders = null;
     setSignedIn(false); loadBoard();
   }
 
@@ -539,11 +647,16 @@ ${m.closed ? `<h2>Outcome: ${esc(m.closed.outcome)}</h2>${kv("Closed", m.closed.
     $("signout").addEventListener("click", signOut);
     document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
     $("new-module").addEventListener("click", newModule);
-    document.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => addItem(b.dataset.add)));
+    document.querySelector('[data-add="scenes"]').addEventListener("click", () => addScene());
+    document.querySelector('[data-add="npcs"]').addEventListener("click", () => addUnit("npc"));
+    document.querySelector('[data-add="enemies"]').addEventListener("click", () => addUnit("enemy"));
     $("editor").addEventListener("submit", onSave);
+    $("download-pdf").addEventListener("click", onDownloadPdf);
     $("close-out").addEventListener("click", openCloseOut);
     $("closeout-form").addEventListener("submit", onCloseOut);
     $("closeout-cancel").addEventListener("click", () => $("closeout-dialog").close());
+    $("card-download").addEventListener("click", downloadCard);
+    $("card-close").addEventListener("click", () => $("card-dialog").close());
     if (DEMO) { setSignedIn(true); notice("Demo mode: sample data, nothing is saved to Google."); }
     loadBoard();
   }

@@ -1,4 +1,4 @@
-// Carpathia System D100 roll tables, used by the encounter builder and the run sheet.
+// Carpathia System data used by the module builder, unit cards and session-module PDFs.
 // An enemy's Offense level sets the table players roll on when attacking it;
 // its Defense level sets the table players roll on when it attacks them.
 window.CARPATHIA = {
@@ -12,6 +12,9 @@ window.CARPATHIA = {
     2: [["1 or less", "-3 HP"], ["2–29", "-2 HP"], ["30–49", "-1 HP"], ["50+", "0 HP"], ["100+", "+1 counter dmg"]],
     3: [["1 or less", "-4 HP"], ["2–29", "-3 HP"], ["30–49", "-2 HP"], ["50–69", "-1 HP"], ["70+", "0 HP"], ["100+", "+1 counter dmg"]],
   },
+  // Carpathia has a single healing table and a single buffing table; the unit's level is shown alongside.
+  healing: [["1 or less", "-1 HP"], ["2–29", "0 HP"], ["30–59", "+1 HP"], ["60–79", "+2 HP"], ["80–99", "+3 HP"], ["100+", "+4 HP"]],
+  buffing: [["1–19", "No effect"], ["20–39", "+5"], ["40–59", "+10"], ["60–79", "+15"], ["80–99", "+20"], ["100+", "+25"]],
   tierHints: {
     offense: {
       1: "Small or unarmored: critters, wildlife, civilians",
@@ -24,5 +27,6 @@ window.CARPATHIA = {
       3: "Powerful, hard to dodge",
     },
   },
-  markers: ["", "Skull", "Cross", "Square", "Moon", "Triangle", "Diamond", "Circle", "Star"],
+  // Raid markers as [name, symbol]. Symbols are plain Unicode so they render anywhere.
+  markers: [["", ""], ["Skull", "☠"], ["Cross", "✖"], ["Square", "■"], ["Moon", "☾"], ["Triangle", "▲"], ["Diamond", "◆"], ["Circle", "●"], ["Star", "★"]],
 };

@@ -7,7 +7,7 @@
   <meta name="description" content="Black Market bounties for the Wayward Vagrants: one-shot modules hosted by the guild's GMs.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -51,7 +51,7 @@
     <!-- GM: my modules -->
     <section id="view-mine" hidden>
       <h2 class="section-title">My bounties</h2>
-      <p class="muted">Modules you've written with this board. They're stored in your own Google Drive and only you can open them.</p>
+      <p class="muted">Modules you've written with this board. They live in the "Carpathia Bounty Board" folder in your own Google Drive, and only you can open them.</p>
       <div id="mine-list" class="mine-list"></div>
     </section>
 
@@ -64,7 +64,8 @@
             <h2 class="section-title" id="editor-title">New bounty</h2>
           </div>
           <div class="editor-actions">
-            <a id="open-doc" class="btn btn-ghost" target="_blank" rel="noopener noreferrer" hidden>Open run sheet</a>
+            <a id="open-pdf" class="btn btn-ghost" target="_blank" rel="noopener noreferrer" hidden>Open session module</a>
+            <button type="button" class="btn btn-ghost" id="download-pdf">Download PDF</button>
             <button type="button" class="btn btn-ghost" id="close-out" hidden>Close out…</button>
             <button type="submit" class="btn btn-gold" id="save">Save and publish</button>
           </div>
@@ -76,8 +77,7 @@
           <label>Title<input name="title" required maxlength="80"></label>
           <div class="row">
             <label>Level (1–10)<select name="level"></select></label>
-            <label>Reward (gold)<input name="reward" type="number" min="0" step="1"></label>
-            <label>Party size<input name="partySize" maxlength="20" placeholder="3–5"></label>
+            <label>Initial reward (gold)<input name="initialReward" type="number" min="0" step="1"></label>
             <label>Status<select name="status">
               <option>Open</option><option>Full</option>
             </select></label>
@@ -88,7 +88,7 @@
           </div>
           <div class="row">
             <label class="grow">Hosted by (your GM name)<input name="gmName" required maxlength="40"></label>
-            <label class="grow">Poster art URL (optional)<input name="imageUrl" type="url" placeholder="https://…"></label>
+            <label class="grow">Poster art URL (optional)<input name="imageUrl" type="url" placeholder="https://i.ibb.co/…/poster.png"></label>
           </div>
           <label>Hook<textarea name="hook" rows="3" maxlength="500" placeholder="The Black Market's pitch. No spoilers."></textarea></label>
         </fieldset>
@@ -96,10 +96,7 @@
         <fieldset class="panel">
           <legend>Overview (GM only)</legend>
           <label>Premise<textarea name="premise" rows="3"></textarea></label>
-          <div class="row">
-            <label class="grow">Objective<textarea name="objective" rows="2"></textarea></label>
-            <label class="grow">Estimated length<input name="duration" maxlength="40" placeholder="2 hours"></label>
-          </div>
+          <label>Objective<textarea name="objective" rows="2"></textarea></label>
           <div class="row">
             <label class="grow">Success looks like<textarea name="success" rows="2"></textarea></label>
             <label class="grow">Failure looks like<textarea name="failure" rows="2"></textarea></label>
@@ -120,9 +117,9 @@
         </fieldset>
 
         <fieldset class="panel">
-          <legend>Encounters (Carpathia System)</legend>
-          <div class="repeat" data-list="encounters"></div>
-          <button type="button" class="btn btn-ghost add" data-add="encounters">Add enemy</button>
+          <legend>Enemies (Carpathia System)</legend>
+          <div class="repeat" data-list="enemies"></div>
+          <button type="button" class="btn btn-ghost add" data-add="enemies">Add enemy</button>
         </fieldset>
 
         <fieldset class="panel">
@@ -142,6 +139,18 @@
     </footer>
   </div>
 
+  <dialog id="card-dialog" class="dialog dialog-wide">
+    <div class="dialog-body">
+      <div class="eyebrow">UNIT CARD</div>
+      <div id="card-preview" class="card-preview"></div>
+      <p id="card-status" class="status-line" role="status"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-gold" id="card-download">Download PNG</button>
+        <button type="button" class="btn btn-ghost" id="card-close">Close</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="closeout-dialog" class="dialog">
     <form id="closeout-form" method="dialog">
       <div class="eyebrow">CLOSE OUT</div>
@@ -150,6 +159,7 @@
         <label class="check"><input type="radio" name="outcome" value="Completed" checked> Completed</label>
         <label class="check"><input type="radio" name="outcome" value="Failed"> Failed</label>
       </div>
+      <label>Final reward (gold)<input name="finalReward" type="number" min="0" step="1"></label>
       <label>Party (one per line: Character - Player)
         <textarea name="party" rows="5" placeholder="Sachiko Evenpaw - Ymirhen"></textarea>
       </label>
@@ -184,6 +194,10 @@
 
   <script src="config.js"></script>
   <script src="carpathia.js"></script>
+  <script src="vendor/html2canvas.min.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="unitcard.js"></script>
+  <script src="modulepdf.js"></script>
   <script src="app.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGisLoaded && window.onGisLoaded()"></script>
 </body>
