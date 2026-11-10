@@ -1,8 +1,8 @@
-# Carpathia Bounty Board: design
+# Black Market Bounty Board: design
 
 ## Purpose
 
-The Wayward Vagrants' mercs take contracts from the Black Market. Each bounty is a **one-shot module** that a GM writes and hosts. The board:
+The guild's mercs take contracts from the Black Market. Each bounty is a **one-shot module** that a GM writes and hosts. The board:
 
 - shows players what's on offer;
 - gives GMs a structured tool for planning, running and closing out their one-shots.
@@ -39,7 +39,7 @@ Bounty Project/                    (Drive folder, owned by the guild lead)
     └── Completed by players       one row per merc per completed bounty
 
 Each GM's own Drive (private, created by the board on first save)
-└── Carpathia Bounty Board/
+└── Black Market Bounty Board/
     ├── Module data/               <title>.json, the module the builder loads and saves
     └── Session modules/           <title> - Session module.pdf, regenerated on every save
 ```

@@ -1,8 +1,8 @@
-/* Carpathia Bounty Board: static client for GitHub Pages.
+/* Black Market Bounty Board: static client for GitHub Pages.
  *
  * Public: reads the "Active" tab of the Bounty Records sheet and shows wanted-poster cards.
  * GMs (signed in with Google) write one-shot modules. In the GM's own Drive the board keeps:
- *   Carpathia Bounty Board/
+ *   Black Market Bounty Board/
  *     Module data/       one JSON file per module (the source of truth the builder loads and saves)
  *     Session modules/   a printable, one-shot style PDF per module, regenerated on every save
  * Publishing upserts the module's card in the Active tab; closing out archives it to Completed/Failed
@@ -108,16 +108,21 @@
       const find = async (role, parent) => {
         let q = `mimeType='${FOLDER}' and appProperties has { key='carpathiaFolder' and value='${role}' } and trashed=false`;
         if (parent) q += ` and '${parent}' in parents`;
-        const data = await api(`${DRIVE}?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id)`);
-        return data.files && data.files[0] ? data.files[0].id : "";
+        const data = await api(`${DRIVE}?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id,name)`);
+        return data.files && data.files[0] ? data.files[0] : null;
       };
       const create = async (name, role, parent) => (await api(`${DRIVE}?fields=id`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, mimeType: FOLDER, appProperties: { carpathiaFolder: role }, ...(parent ? { parents: [parent] } : {}) }),
       })).id;
-      const root = (await find("root")) || (await create("Carpathia Bounty Board", "root"));
-      const data = (await find("data", root)) || (await create("Module data", "data", root));
-      const pdf = (await find("pdf", root)) || (await create("Session modules", "pdf", root));
+      const ROOT_NAME = "Black Market Bounty Board";
+      const found = await find("root");
+      const root = found ? found.id : await create(ROOT_NAME, "root");
+      if (found && found.name !== ROOT_NAME) { // folders made before the board was renamed
+        await api(`${DRIVE}/${root}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: ROOT_NAME }) }).catch(() => {});
+      }
+      const data = (await find("data", root))?.id || (await create("Module data", "data", root));
+      const pdf = (await find("pdf", root))?.id || (await create("Session modules", "pdf", root));
       state.folders = { root, data, pdf };
       return state.folders;
     },

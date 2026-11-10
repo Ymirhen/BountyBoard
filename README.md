@@ -1,6 +1,6 @@
-# Carpathia Bounty Board
+# Black Market Bounty Board
 
-Black Market bounties for the Wayward Vagrants: one-shot contracts hosted by the guild's GMs.
+Black Market bounties: one-shot contracts hosted by the guild's GMs.
 
 **Board:** https://ymirhen.github.io/BountyBoard/
 

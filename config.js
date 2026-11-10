@@ -1,4 +1,4 @@
-// Carpathia Bounty Board configuration.
+// Black Market Bounty Board configuration.
 // Everything in this file is public (it's served by GitHub Pages), so never put secrets here.
 window.BOARD_CONFIG = {
   // "Bounty Records" sheet in the "Bounty Project" Drive folder.
