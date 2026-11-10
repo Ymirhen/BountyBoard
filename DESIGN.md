@@ -74,10 +74,23 @@ Each GM's own Drive (private, created by the board on first save)
 
 ## Bounty wall (public board)
 
-- The board is a mahogany-paneled wall seen through a window. Level 10 is the top row and level 0 the bottom; empty levels collapse to a thin strip with their plaque.
-- Each bounty is a parchment notice tacked to its level's brass rail, with a slight stable tilt. It shows poster art (or the hook), title, koban level coins, reward, GM and session time. Clicking opens the full posting.
-- **Camera:** moving the mouse into the outer 20% of the window glides the view that way, and the centre is a dead zone so cards stay put while you aim. Click-drag and touch-drag pan, the wheel scrolls (and lets the page scroll once the wall's end is reached), and arrow keys pan when the wall has focus. With reduced motion, edge-gliding is off.
-- Status filter chips dim non-matching notices. A **List view** toggle (remembered per browser) shows the plain sortable grid.
+The board is a mahogany-paneled wall seen through a window, in one of three arrangements (the choice is remembered per browser):
+
+- **Scattered** (default): notices are nailed up at seeded random spots and angles, like a real tavern board.
+  - The board's area grows with the number of bounties.
+  - Each notice is placed oldest-first. It tries 80 seeded spots and takes the one that overlaps least, with a slight pull toward the middle, so every notice stays mostly visible. Newer notices are pinned on top, and higher-level bounties are posted a little larger.
+  - Torn scraps of old notices and empty nail holes fill the gaps. The view starts centred, and hovering a notice brings it to the front.
+- **By level:** rows from level 10 (top) to level 0 (bottom), with koban plaques and brass rails. Empty levels collapse to a thin strip.
+- **List:** the plain sortable grid.
+
+Notices are aged parchment: a seeded torn outline, browned edges, crease, stains and an occasional dog-ear. They show the hook, title, koban level coins, reward and GM. A bounty with poster art shows only the poster, aged the same way. Clicking any notice opens the full posting.
+
+**Camera:**
+- Moving the mouse into the outer 20% of the window glides the view that way; the centre is a dead zone.
+- Click-drag and touch-drag pan, the wheel scrolls, and arrow keys pan when the wall has focus.
+- With reduced motion, edge-gliding is off.
+
+The status filter dims non-matching notices.
 
 ## Unit cards
 

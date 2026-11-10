@@ -1,5 +1,8 @@
 /* Bounty wall: the board as a large mahogany wall seen through a window.
- * Rows run from level 10 (top) to level 0 (bottom); each bounty is a notice nailed to its row.
+ * Two arrangements:
+ *   scatter (default): notices nailed up at seeded random spots and angles, like a tavern board;
+ *     newer notices overlap older ones, and torn scraps and nail holes fill the gaps.
+ *   levels: rows from level 10 (top) to level 0 (bottom), each notice nailed to its row.
  * Camera: moving the mouse near an edge glides the view that way (the centre is a dead zone so
  * cards don't slide away while you aim), click-drag / touch-drag pans, the wheel scrolls, and the
  * arrow keys pan when the wall has focus. Reduced-motion users get drag/wheel/keys only. */
@@ -13,7 +16,7 @@
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const cam = { x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, maxX: 0, maxY: 0, raf: 0, last: 0 };
-  let viewport, world, hint, onOpen, dragging = null, built = false;
+  let viewport, world, hint, onOpen, dragging = null, built = false, mode = "scatter", centeredFor = "";
 
   function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
   // Stable pseudo-random numbers per bounty so tilt and offset don't change between renders.
@@ -159,6 +162,82 @@
 
   function layout(bounties, filter) {
     if (!viewport.clientWidth) return; // hidden: the ResizeObserver lays out once it's shown
+    world.classList.toggle("scatter", mode === "scatter");
+    if (mode === "scatter") layoutScatter(bounties, filter); else layoutLevels(bounties, filter);
+  }
+
+  // ---------- scatter ----------
+  // Board area grows with the number of notices. Each notice (oldest first) tries 60 seeded spots
+  // and takes the one it overlaps least, with a slight pull toward the middle so small boards look
+  // full rather than sparse. Newer notices are pinned on top. All randomness is seeded per bounty,
+  // so a notice keeps its spot between visits.
+  function layoutScatter(bounties, filter) {
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    const n = bounties.length, M = 60;
+    const cell = (CARD_W + 40) * (CARD_H + 40);
+    const aspect = Math.max(1.3, vw / vh);
+    const area = Math.max(vw * vh, n * cell * 1.7);
+    const W = Math.max(vw, Math.round(Math.sqrt(area * aspect)));
+    const H = Math.max(vh, Math.round(area / W), CARD_H + 2 * M + 40);
+    world.replaceChildren();
+    const order = bounties.slice().sort((a, b) => String(a.created).localeCompare(String(b.created)) || a.id.localeCompare(b.id));
+    const placed = [];
+    const overlap = (r) => placed.reduce((sum, q) => {
+      const x = Math.max(0, Math.min(r.x + r.w, q.x + q.w) - Math.max(r.x, q.x));
+      const y = Math.max(0, Math.min(r.y + r.h, q.y + q.h) - Math.max(r.y, q.y));
+      return sum + x * y;
+    }, 0);
+    order.forEach((b, i) => {
+      const s = 0.94 + b.level * 0.012;             // higher bounties are posted a little larger
+      const w = CARD_W * s, h = CARD_H * s;
+      let best = null;
+      for (let k = 0; k < 80; k++) {
+        const r = { x: M + rand(b.id, 10 + k) * Math.max(1, W - 2 * M - w), y: M + 14 + rand(b.id, 120 + k) * Math.max(1, H - 2 * M - h - 14), w, h };
+        const centre = Math.hypot((r.x + w / 2) / W - 0.5, (r.y + h / 2) / H - 0.5);
+        const f = overlap(r) / (w * h);
+        const score = f * f * 4 + f + centre * 0.05; // overlap matters most; big overlaps far more than small
+        if (!best || score < best.score) best = { ...r, score };
+      }
+      placed.push(best);
+      const node = notice(b);
+      node.style.left = `${best.x}px`; node.style.top = `${best.y}px`;
+      node.style.zIndex = String(10 + i);
+      node.style.setProperty("--tilt", `${((rand(b.id, 3) - 0.5) * 13).toFixed(2)}deg`);
+      node.style.setProperty("--s", s.toFixed(3));
+      if (filter !== "All" && b.status !== filter) node.classList.add("dimmed");
+      world.append(node);
+    });
+    // Atmosphere: torn leftovers of old notices and empty nail holes, placed where they cover least.
+    const seed = "board";
+    const extras = Math.round(n * 0.7) + 5;
+    for (let j = 0; j < extras; j++) {
+      const w = 50 + rand(seed, 200 + j) * 80, h = 34 + rand(seed, 300 + j) * 60;
+      let best = null;
+      for (let k = 0; k < 25; k++) {
+        const r = { x: 20 + rand(seed, 1000 + j * 31 + k) * (W - 40 - w), y: 20 + rand(seed, 5000 + j * 31 + k) * (H - 40 - h), w, h };
+        const o = overlap(r);
+        if (!best || o < best.o) best = { ...r, o };
+      }
+      if (best.o > w * h * 0.15) continue;
+      const scrap = el("span", "scrap");
+      scrap.setAttribute("aria-hidden", "true");
+      scrap.style.left = `${best.x}px`; scrap.style.top = `${best.y}px`;
+      scrap.style.width = `${w}px`; scrap.style.height = `${h}px`;
+      scrap.style.setProperty("--tilt", `${((rand(seed, 400 + j) - 0.5) * 30).toFixed(1)}deg`);
+      scrap.style.clipPath = wornPaper(`scrap${j}`, w, h).clip;
+      if (rand(seed, 600 + j) < 0.6) { const t = el("img", "scrap-tack"); t.src = "assets/tack.png"; t.alt = ""; t.draggable = false; scrap.append(t); }
+      world.append(scrap);
+      const hole = el("span", "nail-hole");
+      hole.setAttribute("aria-hidden", "true");
+      hole.style.left = `${20 + rand(seed, 700 + j) * (W - 40)}px`; hole.style.top = `${20 + rand(seed, 800 + j) * (H - 40)}px`;
+      world.append(hole);
+    }
+    if (!n) world.append(el("div", "wall-empty", "No bounties on the board right now."));
+    finishLayout(W, H, vw, vh);
+  }
+
+  // ---------- rows by level ----------
+  function layoutLevels(bounties, filter) {
     const rows = [];
     for (let lvl = 10; lvl >= 0; lvl--) rows.push({ lvl, items: bounties.filter((b) => b.level === lvl) });
     const widest = Math.max(1, ...rows.map((r) => r.items.length));
@@ -188,9 +267,18 @@
       y += h;
     }
     if (!bounties.length) world.append(el("div", "wall-empty", "No bounties on the board right now."));
-    const H = Math.max(vh, y + BOTTOM);
+    finishLayout(W, Math.max(vh, y + BOTTOM), vw, vh);
+  }
+
+  function finishLayout(W, H, vw, vh) {
     world.style.width = `${W}px`; world.style.height = `${H}px`;
     cam.maxX = Math.max(0, W - vw); cam.maxY = Math.max(0, H - vh);
+    // Start a scattered board in the middle; start the level rows at the top.
+    if (centeredFor !== mode) {
+      centeredFor = mode;
+      cam.tx = mode === "scatter" ? cam.maxX / 2 : 0;
+      cam.ty = mode === "scatter" ? cam.maxY / 2 : 0;
+    }
     clamp(); apply(true);
     viewport.classList.toggle("pannable", cam.maxX > 0 || cam.maxY > 0);
   }
@@ -298,7 +386,8 @@
     window.BountyWall._remember = (b, f) => { last = { bounties: b, filter: f }; };
   }
 
-  function render(bounties, filter) {
+  function render(bounties, filter, arrangement) {
+    mode = arrangement === "levels" ? "levels" : "scatter";
     window.BountyWall._remember(bounties, filter);
     layout(bounties, filter);
   }

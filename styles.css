@@ -483,3 +483,27 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
     radial-gradient(70px 70px at 100% 100%, rgba(90,50,15,.35), transparent 70%),
     radial-gradient(70px 70px at 0 100%, rgba(90,50,15,.3), transparent 70%);
 }
+
+/* ---------- view switch ---------- */
+.view-switch { display: inline-flex; border: 1px solid var(--line-2); border-radius: 4px; overflow: hidden; }
+.view-switch button { min-height: 44px; padding: 0 16px; background: transparent; border: none; color: #e6d9bb; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.view-switch button + button { border-left: 1px solid var(--line-2); }
+.view-switch button[aria-pressed="true"] { background: var(--gold); color: var(--paper-text); font-weight: 600; }
+.view-switch button:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: -3px; }
+
+/* ---------- scattered board ---------- */
+.bnotice { transform: rotate(var(--tilt, 0deg)) scale(var(--s, 1)); }
+.wall-viewport:not(.grabbing) .bnotice:hover, .bnotice:focus-visible { transform: rotate(0deg) translateY(-4px) scale(calc(var(--s, 1) * 1.05)); }
+.wall-world.scatter .bnotice:hover, .wall-world.scatter .bnotice:focus-visible { z-index: 9999 !important; }
+.scrap {
+  position: absolute; transform: rotate(var(--tilt)); pointer-events: none;
+  background: linear-gradient(rgba(110,62,18,.25), rgba(110,62,18,.4)), url("assets/parchment.jpg") center / 300px;
+  filter: drop-shadow(0 4px 4px rgba(0,0,0,.5)) saturate(.8) brightness(.85);
+}
+.scrap-tack { position: absolute; top: 2px; left: 50%; width: 16px; height: 16px; margin-left: -8px; filter: drop-shadow(0 2px 1px rgba(0,0,0,.6)); }
+.nail-hole { position: absolute; width: 5px; height: 5px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 40% 40%, #050302, #1a0d07 70%, transparent 72%); box-shadow: 0 1px 0 rgba(255,220,170,.08); }
+.scrap {
+  background: url("assets/parchment.jpg") center / 300px, #d9c79f;
+  filter: none; box-shadow: inset 0 0 10px 2px rgba(110,62,18,.6), inset 0 0 24px 4px rgba(90,50,15,.25);
+  opacity: .92;
+}

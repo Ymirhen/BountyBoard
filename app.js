@@ -562,13 +562,12 @@
       return el("button", { type: "button", class: "chip", "aria-pressed": String(state.filter === s), text: `${s} · ${count}`,
         onclick: () => { state.filter = s; renderBoard(); } });
     }));
-    const wall = state.view === "wall";
+    const wall = state.view !== "list";
     $("wall-viewport").hidden = !wall;
     $("board").hidden = wall;
     $("sort-wrap").hidden = wall;
-    $("view-toggle").textContent = wall ? "List view" : "Wall view";
-    $("view-toggle").setAttribute("aria-pressed", String(!wall));
-    if (wall) { window.BountyWall.render(state.bounties, state.filter); return; }
+    document.querySelectorAll("#view-switch [data-arrange]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.arrange === state.view)));
+    if (wall) { window.BountyWall.render(state.bounties, state.filter, state.view); return; }
     const by = { newest: (a, b) => b.created.localeCompare(a.created), level: (a, b) => b.level - a.level, reward: (a, b) => b.reward - a.reward }[state.sort];
     const list = state.bounties.filter((b) => state.filter === "All" || b.status === state.filter).sort(by);
     if (!list.length) {
@@ -610,9 +609,12 @@
     if (b.image) { art.src = b.image; art.alt = `Poster art for ${b.title}`; art.onerror = () => { art.hidden = true; }; }
     $("bounty-dialog").showModal();
   }
-  function rememberedView() { try { return localStorage.getItem("carpathia.view") === "list" ? "list" : "wall"; } catch { return "wall"; } }
-  function toggleView() {
-    state.view = state.view === "wall" ? "list" : "wall";
+  const VIEWS = ["scatter", "levels", "list"];
+  function rememberedView() {
+    try { const v = localStorage.getItem("carpathia.view"); return VIEWS.includes(v) ? v : "scatter"; } catch { return "scatter"; }
+  }
+  function setView(v) {
+    state.view = VIEWS.includes(v) ? v : "scatter";
     try { localStorage.setItem("carpathia.view", state.view); } catch { /* storage unavailable */ }
     renderBoard();
   }
@@ -685,7 +687,7 @@
     $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderBoard(); });
     state.view = rememberedView();
     window.BountyWall.init({ viewport: $("wall-viewport"), world: $("wall-world"), hint: $("wall-hint"), onOpen: openBounty });
-    $("view-toggle").addEventListener("click", toggleView);
+    document.querySelectorAll("#view-switch [data-arrange]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.arrange)));
     $("bd-close").addEventListener("click", () => $("bounty-dialog").close());
     $("signin").addEventListener("click", () => state.tokenClient && state.tokenClient.requestAccessToken());
     $("signout").addEventListener("click", signOut);
