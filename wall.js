@@ -24,6 +24,49 @@
     return row;
   }
 
+  // Worn paper: a ragged outline with a few tears, scorched edges, a fold crease, stains and
+  // sometimes a dog-eared corner. Everything is seeded from the bounty id so it never changes.
+  function wornPaper(id, w, h) {
+    const r = (i) => rand(id, 100 + i);
+    let k = 0;
+    const pts = [];
+    const tears = [Math.floor(r(k++) * 4), Math.floor(r(k++) * 4)]; // which sides get a tear
+    const tearAt = [0.2 + r(k++) * 0.6, 0.2 + r(k++) * 0.6];
+    const dogEar = r(k++) < 0.45 ? Math.floor(r(k++) * 4) : -1;     // 0 TL, 1 TR, 2 BR, 3 BL
+    const EAR = 22;
+    const jag = () => 0.6 + r(k++) * 3.6;
+    // walk the four sides clockwise; side s goes from corner s to corner s+1
+    const corners = [[0, 0], [w, 0], [w, h], [0, h]];
+    const inward = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+    for (let s = 0; s < 4; s++) {
+      const [x0, y0] = corners[s], [x1, y1] = corners[(s + 1) % 4], [nx, ny] = inward[s];
+      const len = Math.hypot(x1 - x0, y1 - y0), steps = Math.round(len / 11);
+      for (let i = 0; i <= steps; i++) {
+        let t = i / steps;
+        // dog-eared corner cuts the start of side s when s is the folded corner
+        if (s === dogEar && t * len < EAR) continue;
+        if ((s + 1) % 4 === dogEar && (1 - t) * len < EAR) continue;
+        let d = jag();
+        tears.forEach((side, j) => {
+          if (side !== s) return;
+          const dist = Math.abs(t - tearAt[j]) * len;
+          if (dist < 6) d += (6 - dist) * 2.1; // a small V-shaped nick
+        });
+        pts.push([x0 + (x1 - x0) * t + nx * d, y0 + (y1 - y0) * t + ny * d]);
+      }
+      if (s === dogEar) {} // handled by the skipped points: the outline cuts straight across
+    }
+    const clip = `polygon(${pts.map(([x, y]) => `${x.toFixed(1)}px ${y.toFixed(1)}px`).join(",")})`;
+    // stains and a crease, as CSS background layers on top of the parchment texture
+    const stains = [0, 1, 2].map(() => {
+      const x = Math.round(r(k++) * 100), y = Math.round(r(k++) * 100), sz = 30 + Math.round(r(k++) * 60), a = (0.05 + r(k++) * 0.09).toFixed(2);
+      return `radial-gradient(${sz}px ${Math.round(sz * (0.6 + r(k++) * 0.6))}px at ${x}% ${y}%, rgba(120,72,20,${a}), rgba(120,72,20,${(a * 0.4).toFixed(2)}) 55%, transparent 72%)`;
+    });
+    const creaseAngle = r(k++) < 0.5 ? 0 : 90, creasePos = 38 + Math.round(r(k++) * 24);
+    const crease = `linear-gradient(${creaseAngle}deg, transparent ${creasePos - 0.6}%, rgba(90,60,25,.16) ${creasePos}%, rgba(255,250,235,.28) ${creasePos + 0.5}%, transparent ${creasePos + 1.2}%)`;
+    return { clip, layers: [crease, ...stains].join(","), dogEar };
+  }
+
   // Wax seal with its status written beside it (the seal art itself carries no text).
   function seal(status) {
     const s = el("span", `seal-badge ${status.toLowerCase()}`);
@@ -37,6 +80,12 @@
     card.type = "button";
     card.setAttribute("aria-label", `${b.title}, level ${b.level}, ${b.reward} gold, ${b.status}. Open posting.`);
     const tack = el("img", "tack"); tack.src = "assets/tack.png"; tack.alt = ""; tack.draggable = false; card.append(tack);
+    const worn = wornPaper(b.id, CARD_W, CARD_H);
+    const paper = el("span", "paper");
+    paper.style.clipPath = worn.clip;
+    paper.style.setProperty("--wear", worn.layers);
+    card.append(paper);
+    if (worn.dogEar >= 0) card.append(el("span", `dog-ear c${worn.dogEar}`));
     const inner = el("span", "notice-inner");
     const head = el("span", "notice-head");
     head.append(el("span", "kicker", "BOUNTY"), seal(b.status));
