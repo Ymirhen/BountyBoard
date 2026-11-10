@@ -198,7 +198,7 @@
       { id: "d2", title: "Ashen Toll Collector", level: 6, initial_reward: 750, status: "Open", gm_name: "Sample GM", session_time: "Sun, 20:00 ST", location: "Burned crossroads", hook: "Someone is taxing the road in our name. Find out who, and make it stop.", created_at: "2026-11-03" },
       { id: "d3", title: "The Silent Courier", level: 5, initial_reward: 400, status: "Full", gm_name: "Sample GM", session_time: "Fri, 21:30 ST", location: "Mountain pass road", hook: "A courier vanished with a sealed crate. Bring back the crate. The courier is optional.", created_at: "2026-11-02" },
       { id: "d4", title: "The Gilded Debt", level: 9, initial_reward: 2400, status: "Open", gm_name: "Sample GM", session_time: "Sat, 22:00 ST", location: "Booty Bay", hook: "A Steamwheedle banker owes the Market more than gold. Collect it, quietly.", created_at: "2026-11-04" },
-      { id: "d5", title: "Rats in the Cellar", level: 1, initial_reward: 20, status: "Open", gm_name: "Sample GM", session_time: "Any evening", location: "The Back Door tavern", hook: "Something is eating the stock. Probably rats. Probably.", created_at: "2026-11-05" },
+      { id: "d5", title: "Rats in the Cellar", level: 0, initial_reward: 20, status: "Open", gm_name: "Sample GM", session_time: "Any evening", location: "The Back Door tavern", hook: "Something is eating the stock. Probably rats. Probably.", created_at: "2026-11-05" },
       { id: "d6", title: "Wolves at Hollow Mill", level: 3, initial_reward: 90, status: "Full", gm_name: "Sample GM", session_time: "Thu, 20:00 ST", location: "Hollow Mill", hook: "The miller pays in flour and favours. The Market pays in coin.", created_at: "2026-11-06" },
       { id: "d7", title: "The Pale Magistrate", level: 10, initial_reward: 5000, status: "Open", gm_name: "Sample GM", session_time: "Sun, 21:00 ST", location: "Unknown", hook: "No one who has seen the Magistrate's face has spoken of it. Be the first.", created_at: "2026-11-07" },
       { id: "d8", title: "Smoke over Ratchet", level: 6, initial_reward: 650, status: "Open", gm_name: "Sample GM", session_time: "Fri, 22:00 ST", location: "Ratchet docks", hook: "A warehouse burned with our goods inside. Find who lit it.", created_at: "2026-11-07" },
@@ -396,7 +396,7 @@
     const p = m.public;
     const set = (n, v) => { if (f.elements[n]) f.elements[n].value = v ?? ""; };
     ["title", "session", "location", "gmName", "imageUrl", "hook"].forEach((k) => set(k, p[k]));
-    set("level", String(p.level || 1)); set("initialReward", p.initialReward); set("status", p.status === "Full" ? "Full" : "Open");
+    set("level", String(p.level ?? 1)); set("initialReward", p.initialReward); set("status", p.status === "Full" ? "Full" : "Open");
     ["premise", "objective", "success", "failure"].forEach((k) => set(k, (m.overview || {})[k]));
     set("briefing", m.briefing); set("twists", m.twists); set("items", (m.rewards || {}).items); set("reputation", (m.rewards || {}).reputation); set("gmNotes", m.gmNotes);
     ["scenes", "npcs", "enemies"].forEach((n) => document.querySelector(`[data-list="${n}"]`).replaceChildren());
@@ -415,7 +415,7 @@
     const f = $("editor").elements;
     const v = (n) => String(f[n].value || "").trim();
     m.public = {
-      title: v("title"), level: Math.min(10, Math.max(1, toInt(v("level"), 1))), initialReward: Math.max(0, toInt(v("initialReward"), 0)),
+      title: v("title"), level: Math.min(10, Math.max(0, toInt(v("level"), 1))), initialReward: Math.max(0, toInt(v("initialReward"), 0)),
       finalReward: m.public.finalReward ?? "", status: m.closed ? m.closed.outcome : v("status"), session: v("session"),
       location: v("location"), gmName: v("gmName"), imageUrl: v("imageUrl"), hook: v("hook"),
     };
@@ -532,7 +532,7 @@
     const s = String(r.status || "Open").trim().toLowerCase();
     return {
       id: String(r.id || ""), title: String(r.title || ""), hook: String(r.hook || ""),
-      level: Math.min(10, Math.max(1, toInt(r.level, 1))), reward: Math.max(0, toInt(r.initial_reward ?? r.reward_gold, 0)),
+      level: Math.min(10, Math.max(0, toInt(r.level, 1))), reward: Math.max(0, toInt(r.initial_reward ?? r.reward_gold, 0)),
       status: s === "full" ? "Full" : "Open", gm: String(r.gm_name || ""), session: String(r.session_time || ""),
       location: String(r.location || ""), image: safeUrl(r.image_url), created: String(r.created_at || ""),
     };
@@ -675,7 +675,8 @@
 
   function init() {
     const lvl = $("editor").elements.level;
-    lvl.replaceChildren(...Array.from({ length: 10 }, (_, i) => new Option(String(i + 1))));
+    lvl.replaceChildren(...Array.from({ length: 11 }, (_, i) => new Option(String(i))));
+    lvl.value = "1";
     $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderBoard(); });
     state.view = rememberedView();
     window.BountyWall.init({ viewport: $("wall-viewport"), world: $("wall-world"), hint: $("wall-hint"), onOpen: openBounty });

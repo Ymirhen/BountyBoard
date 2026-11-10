@@ -64,7 +64,7 @@ Each GM's own Drive (private, created by the board on first save)
 
 | Section | Contents |
 | --- | --- |
-| On the board (public) | Title, level 1–10, initial reward, status, session time, location, GM name, poster art URL, hook |
+| On the board (public) | Title, level 0–10, initial reward, status, session time, location, GM name, poster art URL, hook |
 | Overview | Premise, objective, success and failure conditions, briefing |
 | Scenes (repeatable) | Name, location, what happens, RP beats, rolls and checks |
 | NPCs (repeatable) | Name, title, portrait URL, HP, raid marker, positive and negative traits, card description, motivation, secret. Optional combat stats: Offense 1–3, Defense 1–3, Heals (level 1–3), Buffs (level 1–3) |
@@ -74,7 +74,7 @@ Each GM's own Drive (private, created by the board on first save)
 
 ## Bounty wall (public board)
 
-- The board is a mahogany-paneled wall seen through a window. Level 10 is the top row and level 1 the bottom; empty levels collapse to a thin strip with their plaque.
+- The board is a mahogany-paneled wall seen through a window. Level 10 is the top row and level 0 the bottom; empty levels collapse to a thin strip with their plaque.
 - Each bounty is a parchment notice tacked to its level's brass rail, with a slight stable tilt. It shows poster art (or the hook), title, koban level coins, reward, GM and session time. Clicking opens the full posting.
 - **Camera:** moving the mouse into the outer 20% of the window glides the view that way, and the centre is a dead zone so cards stay put while you aim. Click-drag and touch-drag pan, the wheel scrolls (and lets the page scroll once the wall's end is reached), and arrow keys pan when the wall has focus. With reduced motion, edge-gliding is off.
 - Status filter chips dim non-matching notices. A **List view** toggle (remembered per browser) shows the plain sortable grid.

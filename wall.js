@@ -1,5 +1,5 @@
 /* Bounty wall: the board as a large mahogany wall seen through a window.
- * Rows run from level 10 (top) to level 1 (bottom); each bounty is a notice nailed to its row.
+ * Rows run from level 10 (top) to level 0 (bottom); each bounty is a notice nailed to its row.
  * Camera: moving the mouse near an edge glides the view that way (the centre is a dead zone so
  * cards don't slide away while you aim), click-drag / touch-drag pans, the wheel scrolls, and the
  * arrow keys pan when the wall has focus. Reduced-motion users get drag/wheel/keys only. */
@@ -53,7 +53,7 @@
 
   function layout(bounties, filter) {
     const rows = [];
-    for (let lvl = 10; lvl >= 1; lvl--) rows.push({ lvl, items: bounties.filter((b) => b.level === lvl) });
+    for (let lvl = 10; lvl >= 0; lvl--) rows.push({ lvl, items: bounties.filter((b) => b.level === lvl) });
     const widest = Math.max(1, ...rows.map((r) => r.items.length));
     const vw = viewport.clientWidth, vh = viewport.clientHeight;
     const W = Math.max(vw, LEFT + widest * (CARD_W + GAP) - GAP + RIGHT);

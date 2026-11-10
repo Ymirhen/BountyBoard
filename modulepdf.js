@@ -75,7 +75,7 @@
     // Cover page
     const cover = h("section", "pm-cover");
     add(cover, h("div", "pm-eyebrow", "CARPATHIA SYSTEM · ONE-SHOT SESSION MODULE"), h("h1", "", p.title || "Untitled bounty"));
-    add(cover, add(h("div", "pm-cover-meta"), coins(p.level || 1), h("div", "pm-level", `Level ${p.level || 1}`)));
+    add(cover, add(h("div", "pm-cover-meta"), coins(p.level ?? 1), h("div", "pm-level", `Level ${p.level ?? 1}`)));
     const facts = h("div", "pm-facts");
     [["Initial reward", `${p.initialReward ?? 0} gold`], ["Final reward", has(p.finalReward) ? `${p.finalReward} gold` : ""],
       ["Game Master", p.gmName], ["Session", p.session], ["Location", p.location], ["Status", p.status]]
