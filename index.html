@@ -37,16 +37,40 @@
     <section id="view-board">
       <div class="toolbar">
         <div class="chips" role="group" aria-label="Filter by status" id="chips"></div>
-        <label class="sort">Sort
-          <select id="sort">
-            <option value="newest">Newest</option>
-            <option value="level">Level (high first)</option>
-            <option value="reward">Reward (high first)</option>
-          </select>
-        </label>
+        <div class="toolbar-right">
+          <label class="sort" id="sort-wrap" hidden>Sort
+            <select id="sort">
+              <option value="newest">Newest</option>
+              <option value="level">Level (high first)</option>
+              <option value="reward">Reward (high first)</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-ghost" id="view-toggle" aria-pressed="false">List view</button>
+        </div>
       </div>
-      <main id="board" class="board" aria-live="polite"></main>
+      <div id="wall-viewport" class="wall-viewport" tabindex="0" role="region" aria-label="Bounty wall. Move the mouse to the edges, drag, or use the arrow keys to look around.">
+        <div id="wall-world" class="wall-world"></div>
+        <div class="wall-hint" id="wall-hint" aria-hidden="true">Move your mouse to the edges or drag to look around</div>
+      </div>
+      <main id="board" class="board" aria-live="polite" hidden></main>
     </section>
+
+    <dialog id="bounty-dialog" class="dialog dialog-bounty" aria-labelledby="bd-title">
+      <div class="dialog-body bounty-detail">
+        <div class="bd-head">
+          <span class="kicker">BOUNTY</span>
+          <span class="stamp" id="bd-stamp"></span>
+        </div>
+        <img id="bd-art" class="bd-art" alt="" hidden>
+        <h2 id="bd-title"></h2>
+        <div class="bd-level"><span class="koban-row" id="bd-coins" aria-hidden="true"></span><span id="bd-level-text"></span></div>
+        <div class="bd-reward"><span class="label">REWARD</span><span id="bd-amount"></span></div>
+        <p id="bd-hook" class="bd-hook"></p>
+        <dl id="bd-facts" class="facts"></dl>
+        <p class="hint">Sign up on Discord.</p>
+        <div class="dialog-actions"><button type="button" class="btn btn-gold" id="bd-close">Close</button></div>
+      </div>
+    </dialog>
 
     <!-- GM: my modules -->
     <section id="view-mine" hidden>
@@ -198,6 +222,7 @@
   <script src="vendor/jspdf.umd.min.js"></script>
   <script src="unitcard.js"></script>
   <script src="modulepdf.js"></script>
+  <script src="wall.js"></script>
   <script src="app.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGisLoaded && window.onGisLoaded()"></script>
 </body>

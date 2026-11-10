@@ -197,6 +197,11 @@
       { id: "d1", title: "The Ledger Thief", level: 3, initial_reward: 150, status: "Open", gm_name: "Sample GM", session_time: "Sat, 21:00 ST", location: "Dockside district", hook: "A Black Market ledger went missing with someone who shouldn't have it.", created_at: "2026-11-01" },
       { id: "d2", title: "Ashen Toll Collector", level: 6, initial_reward: 750, status: "Open", gm_name: "Sample GM", session_time: "Sun, 20:00 ST", location: "Burned crossroads", hook: "Someone is taxing the road in our name. Find out who, and make it stop.", created_at: "2026-11-03" },
       { id: "d3", title: "The Silent Courier", level: 5, initial_reward: 400, status: "Full", gm_name: "Sample GM", session_time: "Fri, 21:30 ST", location: "Mountain pass road", hook: "A courier vanished with a sealed crate. Bring back the crate. The courier is optional.", created_at: "2026-11-02" },
+      { id: "d4", title: "The Gilded Debt", level: 9, initial_reward: 2400, status: "Open", gm_name: "Sample GM", session_time: "Sat, 22:00 ST", location: "Booty Bay", hook: "A Steamwheedle banker owes the Market more than gold. Collect it, quietly.", created_at: "2026-11-04" },
+      { id: "d5", title: "Rats in the Cellar", level: 1, initial_reward: 20, status: "Open", gm_name: "Sample GM", session_time: "Any evening", location: "The Back Door tavern", hook: "Something is eating the stock. Probably rats. Probably.", created_at: "2026-11-05" },
+      { id: "d6", title: "Wolves at Hollow Mill", level: 3, initial_reward: 90, status: "Full", gm_name: "Sample GM", session_time: "Thu, 20:00 ST", location: "Hollow Mill", hook: "The miller pays in flour and favours. The Market pays in coin.", created_at: "2026-11-06" },
+      { id: "d7", title: "The Pale Magistrate", level: 10, initial_reward: 5000, status: "Open", gm_name: "Sample GM", session_time: "Sun, 21:00 ST", location: "Unknown", hook: "No one who has seen the Magistrate's face has spoken of it. Be the first.", created_at: "2026-11-07" },
+      { id: "d8", title: "Smoke over Ratchet", level: 6, initial_reward: 650, status: "Open", gm_name: "Sample GM", session_time: "Fri, 22:00 ST", location: "Ratchet docks", hook: "A warehouse burned with our goods inside. Find who lit it.", created_at: "2026-11-07" },
     ], completed: [], failed: [], players: [] };
     window.__demoSheet = sheet;
     return {
@@ -552,6 +557,13 @@
       return el("button", { type: "button", class: "chip", "aria-pressed": String(state.filter === s), text: `${s} · ${count}`,
         onclick: () => { state.filter = s; renderBoard(); } });
     }));
+    const wall = state.view === "wall";
+    $("wall-viewport").hidden = !wall;
+    $("board").hidden = wall;
+    $("sort-wrap").hidden = wall;
+    $("view-toggle").textContent = wall ? "List view" : "Wall view";
+    $("view-toggle").setAttribute("aria-pressed", String(!wall));
+    if (wall) { window.BountyWall.render(state.bounties, state.filter); return; }
     const by = { newest: (a, b) => b.created.localeCompare(a.created), level: (a, b) => b.level - a.level, reward: (a, b) => b.reward - a.reward }[state.sort];
     const list = state.bounties.filter((b) => state.filter === "All" || b.status === state.filter).sort(by);
     if (!list.length) {
@@ -576,6 +588,28 @@
       }
       return node;
     }));
+  }
+
+  function openBounty(b) {
+    const stamp = $("bd-stamp");
+    stamp.className = `stamp ${b.status.toLowerCase()}`; stamp.textContent = b.status.toUpperCase();
+    $("bd-title").textContent = b.title;
+    $("bd-coins").replaceWith(Object.assign(window.BountyWall.koban(b.level, "big"), { id: "bd-coins" }));
+    $("bd-level-text").textContent = `Level ${b.level}`;
+    $("bd-amount").textContent = `${b.reward.toLocaleString("en-US")} gold`;
+    $("bd-hook").textContent = b.hook;
+    $("bd-facts").replaceChildren(...[["GM", b.gm], ["When", b.session], ["Where", b.location]]
+      .filter(([, v]) => v).flatMap(([k, v]) => [el("dt", { text: k }), el("dd", { text: v })]));
+    const art = $("bd-art");
+    art.hidden = !b.image; art.removeAttribute("src");
+    if (b.image) { art.src = b.image; art.alt = `Poster art for ${b.title}`; art.onerror = () => { art.hidden = true; }; }
+    $("bounty-dialog").showModal();
+  }
+  function rememberedView() { try { return localStorage.getItem("carpathia.view") === "list" ? "list" : "wall"; } catch { return "wall"; } }
+  function toggleView() {
+    state.view = state.view === "wall" ? "list" : "wall";
+    try { localStorage.setItem("carpathia.view", state.view); } catch { /* storage unavailable */ }
+    renderBoard();
   }
 
   // ---------- my bounties ----------
@@ -643,6 +677,10 @@
     const lvl = $("editor").elements.level;
     lvl.replaceChildren(...Array.from({ length: 10 }, (_, i) => new Option(String(i + 1))));
     $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderBoard(); });
+    state.view = rememberedView();
+    window.BountyWall.init({ viewport: $("wall-viewport"), world: $("wall-world"), hint: $("wall-hint"), onOpen: openBounty });
+    $("view-toggle").addEventListener("click", toggleView);
+    $("bd-close").addEventListener("click", () => $("bounty-dialog").close());
     $("signin").addEventListener("click", () => state.tokenClient && state.tokenClient.requestAccessToken());
     $("signout").addEventListener("click", signOut);
     document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));

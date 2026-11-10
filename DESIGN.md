@@ -72,6 +72,13 @@ Each GM's own Drive (private, created by the board on first save)
 | Twists and rewards | Complications, items, reputation, GM notes |
 | Outcome (after close-out) | Completed / Failed, final reward, party, gold per merc, notes |
 
+## Bounty wall (public board)
+
+- The board is a mahogany-paneled wall seen through a window. Level 10 is the top row and level 1 the bottom; empty levels collapse to a thin strip with their plaque.
+- Each bounty is a parchment notice tacked to its level's brass rail, with a slight stable tilt. It shows poster art (or the hook), title, koban level coins, reward, GM and session time. Clicking opens the full posting.
+- **Camera:** moving the mouse into the outer 20% of the window glides the view that way, and the centre is a dead zone so cards stay put while you aim. Click-drag and touch-drag pan, the wheel scrolls (and lets the page scroll once the wall's end is reached), and arrow keys pan when the wall has focus. With reduced motion, edge-gliding is off.
+- Status filter chips dim non-matching notices. A **List view** toggle (remembered per browser) shows the plain sortable grid.
+
 ## Unit cards
 
 Every NPC and enemy can be exported as a unit card (1000 × 620 PNG, rendered at 2×):
