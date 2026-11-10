@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const CARD_W = 236, CARD_H = 350, GAP = 56, ROW_H = CARD_H + 70, EMPTY_ROW_H = 74;
+  const CARD_W = 236, CARD_H = 350, POSTER_MAX_H = 380, GAP = 56, ROW_H = CARD_H + 70, EMPTY_ROW_H = 74;
   const LEFT = 190, RIGHT = 120, TOP = 90, BOTTOM = 90;
   const EDGE = 0.2;          // outer 20% of the window steers the camera
   const EDGE_SPEED = 900;    // px per second at the very edge
@@ -90,6 +90,21 @@
     return s;
   }
 
+  // Flap = triangle A, B, tip, drawn in its own small box so the shading gradient fits it.
+  function dogEar(e) {
+    if (!e) return null;
+    const { A, B, tip, corner } = e;
+    const xs = [A[0], B[0], tip[0]], ys = [A[1], B[1], tip[1]];
+    const left = Math.min(...xs), top = Math.min(...ys);
+    const box = el("span", `dog-ear c${corner}`);
+    box.style.left = `${left}px`; box.style.top = `${top}px`;
+    box.style.width = `${Math.max(...xs) - left}px`; box.style.height = `${Math.max(...ys) - top}px`;
+    const flap = el("span", "flap");
+    flap.style.clipPath = `polygon(${[A, B, tip].map(([x, y]) => `${(x - left).toFixed(1)}px ${(y - top).toFixed(1)}px`).join(",")})`;
+    box.append(flap);
+    return box;
+  }
+
   function notice(b) {
     const card = el("button", `bnotice status-${b.status.toLowerCase()}`);
     card.type = "button";
@@ -100,19 +115,8 @@
     paper.style.clipPath = worn.clip;
     paper.style.setProperty("--wear", worn.layers);
     card.append(paper);
-    if (worn.ear) {
-      // Flap = triangle A, B, tip, drawn in its own small box so the shading gradient fits it.
-      const { A, B, tip, corner } = worn.ear;
-      const xs = [A[0], B[0], tip[0]], ys = [A[1], B[1], tip[1]];
-      const left = Math.min(...xs), top = Math.min(...ys);
-      const box = el("span", `dog-ear c${corner}`);
-      box.style.left = `${left}px`; box.style.top = `${top}px`;
-      box.style.width = `${Math.max(...xs) - left}px`; box.style.height = `${Math.max(...ys) - top}px`;
-      const flap = el("span", "flap");
-      flap.style.clipPath = `polygon(${[A, B, tip].map(([x, y]) => `${(x - left).toFixed(1)}px ${(y - top).toFixed(1)}px`).join(",")})`;
-      box.append(flap);
-      card.append(box);
-    }
+    const ear = dogEar(worn.ear);
+    if (ear) card.append(ear);
     const inner = el("span", "notice-inner");
     const head = el("span", "notice-head");
     head.append(el("span", "kicker", "BOUNTY"), seal(b.status));
@@ -130,11 +134,23 @@
     // With poster art the wall shows only the poster itself, tacked up. The parchment notice
     // above stays in the DOM (hidden) and comes back if the image fails to load.
     if (b.image) {
+      const frame = el("span", "poster");
       const poster = el("img", "poster-art"); poster.alt = ""; poster.draggable = false; poster.loading = "lazy";
+      frame.append(poster, el("span", "poster-wear"));
       card.classList.add("poster-only");
-      poster.addEventListener("error", () => { card.classList.remove("poster-only"); poster.remove(); }, { once: true });
+      card.append(frame);
+      poster.addEventListener("error", () => { card.classList.remove("poster-only"); frame.remove(); }, { once: true });
+      poster.addEventListener("load", () => {
+        // Same torn edges, scorch, crease, stains and dog-ear as the parchment, sized to this poster.
+        const h = Math.round(Math.min(POSTER_MAX_H, CARD_W * poster.naturalHeight / Math.max(1, poster.naturalWidth)));
+        frame.style.height = `${h}px`;
+        const pw = wornPaper(b.id + ":poster", CARD_W, h);
+        frame.style.clipPath = pw.clip;
+        frame.style.setProperty("--wear", pw.layers);
+        const ear = dogEar(pw.ear);
+        if (ear) card.append(ear);
+      }, { once: true });
       poster.src = b.image;
-      card.append(poster);
     }
     card.addEventListener("click", (e) => { if (dragging && dragging.moved) { e.preventDefault(); return; } onOpen(b); });
     card.addEventListener("focus", () => focusOn(card));

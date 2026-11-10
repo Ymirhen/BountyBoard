@@ -468,6 +468,18 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
 
 /* ---------- poster-only notices (bounties with poster art) ---------- */
 .bnotice.poster-only { height: auto; }
-.bnotice.poster-only .paper, .bnotice.poster-only .dog-ear { display: none; }
-.bnotice .poster-art { display: none; }
-.bnotice.poster-only .poster-art { display: block; width: 236px; height: auto; max-height: 380px; object-fit: cover; object-position: center top; }
+.bnotice.poster-only .paper, .bnotice.poster-only .paper ~ .dog-ear:not(.poster ~ .dog-ear) { display: none; }
+.bnotice .poster { display: none; }
+.bnotice.poster-only .poster { display: block; position: relative; width: 236px; height: 330px; overflow: hidden; }
+.bnotice .poster-art { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+/* aging layered over the art: stains and crease (multiplied in), browned edges and corners */
+.bnotice .poster-wear { position: absolute; inset: 0; background: var(--wear, none); mix-blend-mode: multiply; }
+.bnotice .poster-wear::before {
+  content: ""; position: absolute; inset: 0;
+  box-shadow: inset 0 0 14px 2px rgba(110,62,18,.55), inset 0 0 40px 6px rgba(120,80,30,.2);
+  background:
+    radial-gradient(60px 60px at 0 0, rgba(90,50,15,.35), transparent 70%),
+    radial-gradient(60px 60px at 100% 0, rgba(90,50,15,.3), transparent 70%),
+    radial-gradient(70px 70px at 100% 100%, rgba(90,50,15,.35), transparent 70%),
+    radial-gradient(70px 70px at 0 100%, rgba(90,50,15,.3), transparent 70%);
+}
