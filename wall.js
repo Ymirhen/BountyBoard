@@ -38,14 +38,22 @@
     // walk the four sides clockwise; side s goes from corner s to corner s+1
     const corners = [[0, 0], [w, 0], [w, h], [0, h]];
     const inward = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+    const EDGE_IN = 1.8; // where the fold meets the torn edge
+    const foldPt = (c, along) => { // point on the edge, EAR away from corner c, along side direction
+      const [cx, cy] = corners[c];
+      return along === "x" ? [cx + (c === 0 || c === 3 ? EAR : -EAR), cy + (c < 2 ? EDGE_IN : -EDGE_IN)]
+                           : [cx + (c === 0 || c === 3 ? EDGE_IN : -EDGE_IN), cy + (c < 2 ? EAR : -EAR)];
+    };
+    let ear = null;
     for (let s = 0; s < 4; s++) {
       const [x0, y0] = corners[s], [x1, y1] = corners[(s + 1) % 4], [nx, ny] = inward[s];
       const len = Math.hypot(x1 - x0, y1 - y0), steps = Math.round(len / 11);
+      const horizontal = s === 0 || s === 2;
+      if (s === dogEar) pts.push(foldPt(s, horizontal ? "x" : "y"));        // fold starts this side
       for (let i = 0; i <= steps; i++) {
-        let t = i / steps;
-        // dog-eared corner cuts the start of side s when s is the folded corner
-        if (s === dogEar && t * len < EAR) continue;
-        if ((s + 1) % 4 === dogEar && (1 - t) * len < EAR) continue;
+        const t = i / steps;
+        if (s === dogEar && t * len < EAR + 3) continue;
+        if ((s + 1) % 4 === dogEar && (1 - t) * len < EAR + 3) continue;
         let d = jag();
         tears.forEach((side, j) => {
           if (side !== s) return;
@@ -54,7 +62,14 @@
         });
         pts.push([x0 + (x1 - x0) * t + nx * d, y0 + (y1 - y0) * t + ny * d]);
       }
-      if (s === dogEar) {} // handled by the skipped points: the outline cuts straight across
+      if ((s + 1) % 4 === dogEar) pts.push(foldPt((s + 1) % 4, horizontal ? "x" : "y")); // fold ends on the next side
+    }
+    if (dogEar >= 0) {
+      // The two fold points A and B; the flap tip is the corner mirrored across AB.
+      const c = corners[dogEar];
+      const A = foldPt(dogEar, "x"), B = foldPt(dogEar, "y");
+      const tip = [A[0] + B[0] - c[0], A[1] + B[1] - c[1]];
+      ear = { corner: dogEar, A, B, tip };
     }
     const clip = `polygon(${pts.map(([x, y]) => `${x.toFixed(1)}px ${y.toFixed(1)}px`).join(",")})`;
     // stains and a crease, as CSS background layers on top of the parchment texture
@@ -64,7 +79,7 @@
     });
     const creaseAngle = r(k++) < 0.5 ? 0 : 90, creasePos = 38 + Math.round(r(k++) * 24);
     const crease = `linear-gradient(${creaseAngle}deg, transparent ${creasePos - 0.6}%, rgba(90,60,25,.16) ${creasePos}%, rgba(255,250,235,.28) ${creasePos + 0.5}%, transparent ${creasePos + 1.2}%)`;
-    return { clip, layers: [crease, ...stains].join(","), dogEar };
+    return { clip, layers: [crease, ...stains].join(","), ear };
   }
 
   // Wax seal with its status written beside it (the seal art itself carries no text).
@@ -85,7 +100,19 @@
     paper.style.clipPath = worn.clip;
     paper.style.setProperty("--wear", worn.layers);
     card.append(paper);
-    if (worn.dogEar >= 0) card.append(el("span", `dog-ear c${worn.dogEar}`));
+    if (worn.ear) {
+      // Flap = triangle A, B, tip, drawn in its own small box so the shading gradient fits it.
+      const { A, B, tip, corner } = worn.ear;
+      const xs = [A[0], B[0], tip[0]], ys = [A[1], B[1], tip[1]];
+      const left = Math.min(...xs), top = Math.min(...ys);
+      const box = el("span", `dog-ear c${corner}`);
+      box.style.left = `${left}px`; box.style.top = `${top}px`;
+      box.style.width = `${Math.max(...xs) - left}px`; box.style.height = `${Math.max(...ys) - top}px`;
+      const flap = el("span", "flap");
+      flap.style.clipPath = `polygon(${[A, B, tip].map(([x, y]) => `${(x - left).toFixed(1)}px ${(y - top).toFixed(1)}px`).join(",")})`;
+      box.append(flap);
+      card.append(box);
+    }
     const inner = el("span", "notice-inner");
     const head = el("span", "notice-head");
     head.append(el("span", "kicker", "BOUNTY"), seal(b.status));
@@ -103,7 +130,7 @@
     inner.append(reward);
     const meta = [b.gm && `GM ${b.gm}`, b.session].filter(Boolean).join(" · ");
     if (meta) inner.append(el("span", "notice-meta", meta));
-    card.append(inner);
+    paper.append(inner); // inside the paper, so the torn outline trims it too
     card.addEventListener("click", (e) => { if (dragging && dragging.moved) { e.preventDefault(); return; } onOpen(b); });
     card.addEventListener("focus", () => focusOn(card));
     return card;

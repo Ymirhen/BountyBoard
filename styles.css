@@ -442,12 +442,13 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
 }
 .bnotice .notice-inner { z-index: 1; border-color: rgba(140,110,60,.55); }
 .bnotice img.tack { z-index: 3; }
-/* the folded-over flap of a dog-eared corner */
-.dog-ear { position: absolute; width: 22px; height: 22px; z-index: 2; background: linear-gradient(135deg, #cdb88a, #b39a63); filter: drop-shadow(1px 1px 1px rgba(0,0,0,.35)); }
-.dog-ear.c0 { left: 0; top: 0; clip-path: polygon(100% 0, 0 100%, 100% 100%); }
-.dog-ear.c1 { right: 0; top: 0; clip-path: polygon(0 0, 0 100%, 100% 100%); }
-.dog-ear.c2 { right: 0; bottom: 0; clip-path: polygon(0 0, 100% 0, 0 100%); }
-.dog-ear.c3 { left: 0; bottom: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+/* the folded-over flap of a dog-eared corner: the back of the sheet, darker at the crease */
+.dog-ear { position: absolute; z-index: 2; filter: drop-shadow(0 1px 1.5px rgba(40,22,5,.55)) drop-shadow(0 0 3px rgba(40,22,5,.25)); }
+.dog-ear .flap { position: absolute; inset: 0; background-color: #d8c597; }
+.dog-ear.c0 .flap { background-image: linear-gradient(to bottom right, #a88d58, #d2bd8c 45%, #efe3c4); }
+.dog-ear.c1 .flap { background-image: linear-gradient(to bottom left, #a88d58, #d2bd8c 45%, #efe3c4); }
+.dog-ear.c2 .flap { background-image: linear-gradient(to top left, #a88d58, #d2bd8c 45%, #efe3c4); }
+.dog-ear.c3 .flap { background-image: linear-gradient(to top right, #a88d58, #d2bd8c 45%, #efe3c4); }
 /* list-view cards and the posting dialog get the aged edges too (without the ragged cut) */
 .card { box-shadow: inset 0 0 18px 2px rgba(110,62,18,.45), 0 10px 24px rgba(0,0,0,.45); }
 .dialog-bounty { box-shadow: inset 0 0 26px 4px rgba(110,62,18,.4); }
