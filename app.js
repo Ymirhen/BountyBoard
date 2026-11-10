@@ -54,6 +54,9 @@
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 30000);
   }
+  // Images uploaded through the board live in the bounty's Drive folder and are shown via this link.
+  const driveImageUrl = (id) => `https://lh3.googleusercontent.com/d/${id}`;
+  const driveImageId = (url) => (String(url || "").match(/^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]{10,})/) || [])[1] || "";
   const pdfName = (m) => `${(m.public.title || "Untitled bounty").replace(/[\\/:*?"<>|]+/g, "")} - Session module.pdf`;
 
   // ---------- Google API plumbing ----------
@@ -173,6 +176,36 @@
         method: "POST", ...multipart({ ...meta, mimeType: "application/pdf", parents: [folder] }, blob, "application/pdf"),
       });
     },
+    // Uploads a poster or portrait into the bounty's folder and makes that one file link-viewable,
+    // so the board (and players) can show it. The folder itself stays GM-only.
+    async uploadImage(m, file, name) {
+      const folder = await this.bountyFolder(m);
+      const type = file.type || "image/png";
+      const { id } = await api(`${UPLOAD}?uploadType=multipart&fields=id`, {
+        method: "POST", ...multipart({ name, mimeType: type, parents: [folder], appProperties: { carpathiaImage: "1", moduleId: m.id } }, file, type),
+      });
+      await api(`${DRIVE}/${id}/permissions?fields=id`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: "reader", type: "anyone" }),
+      });
+      return { id, url: driveImageUrl(id) };
+    },
+    // Fetches an uploaded image with the GM's token, for the PNG and PDF exports.
+    async imageBlob(id) {
+      const res = await fetch(`${DRIVE}/${id}?alt=media`, { headers: { Authorization: `Bearer ${state.token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    },
+    // Trashes uploaded images in the bounty's folder that the module no longer uses.
+    async pruneImages(m) {
+      const folder = await this.bountyFolder(m);
+      const q = encodeURIComponent(`'${folder}' in parents and appProperties has { key='carpathiaImage' and value='1' } and trashed=false`);
+      const used = JSON.stringify(m);
+      for (const f of (await api(`${DRIVE}?q=${q}&pageSize=100&fields=files(id)`)).files || []) {
+        if (!used.includes(f.id)) {
+          await api(`${DRIVE}/${f.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+        }
+      }
+    },
     // One PNG per NPC and enemy, named "<unit> - unit card.png". Cards are matched by name: changed
     // ones are overwritten, new ones added, and cards for removed units moved to the trash.
     async saveCards(m, cards) {
@@ -243,6 +276,9 @@
       async saveModule(fileId, m) { const id = fileId || "f" + newId(); files.set(id, JSON.parse(JSON.stringify(m))); return id; },
       async savePdf(pdfId, m, blob) { window.__demoPdf = blob; return { id: pdfId || "pdf" + newId(), webViewLink: URL.createObjectURL(blob) }; },
       async saveCards(m, cards) { window.__demoCards = cards.map((c) => ({ name: c.name, size: c.blob.size })); },
+      async uploadImage(m, file, name) { const id = "demoimg" + newId() + "xx"; (window.__demoImages ||= []).push({ id, name, size: file.size }); return { id, url: driveImageUrl(id) }; },
+      async imageBlob() { throw new Error("demo"); },
+      async pruneImages() {},
       async upsertCard(m) { const r = Object.fromEntries(ACTIVE_COLS.map((c, i) => [c, cardRow(m)[i]])); const i = sheet.active.findIndex((x) => x.id === m.id); if (i >= 0) sheet.active[i] = r; else sheet.active.push(r); },
       async append(tab, rows) { const key = Object.keys(TABS).find((k) => TABS[k] === tab); sheet[key].push(...rows); },
       async removeCard(id) { sheet.active = sheet.active.filter((x) => x.id !== id); },
@@ -346,14 +382,17 @@
     const label = kind === "enemy" ? "Enemy" : "NPC";
     const { item, tools } = itemShell(listName, label);
     item.dataset.kind = kind;
+    const portraitInput = input("imageUrl", "url", v.imageUrl, { placeholder: "https://i.ibb.co/…/portrait.png, or upload" });
     tools.prepend(el("button", { type: "button", class: "link-btn", text: "Unit card", onclick: () => openCard(readUnit(item), kind) }));
 
     item.append(el("div", { class: "item-grid" },
       field("Name", input("name", "text", v.name)),
       field(kind === "enemy" ? "Title (e.g. Bloodsail Captain)" : "Title / role", input("title", "text", v.title)),
-      field("Portrait image URL", input("imageUrl", "url", v.imageUrl, { placeholder: "https://i.ibb.co/…/portrait.png" }), "span2"),
+      field("Portrait image URL", portraitInput, "span2"),
       field("HP", input("hp", "number", v.hp)),
       field("Raid marker", input("marker", "marker", v.marker))));
+
+    addUploader(portraitInput, () => `${portraitInput.closest(".item").querySelector('[data-field="name"]').value.trim().replace(/[\\/:*?"<>|]+/g, "") || label} - portrait`);
 
     const combat = el("div", { class: "combat" });
     if (kind === "npc") {
@@ -462,8 +501,53 @@
     return m;
   }
 
+  // Swaps Drive-hosted images for local copies so html2canvas can paint them into PNGs and PDFs.
+  async function inlineImages(m) {
+    const copy = JSON.parse(JSON.stringify(m));
+    const swap = async (o) => {
+      const id = driveImageId(o.imageUrl);
+      if (!id) return;
+      try { o.imageUrl = URL.createObjectURL(await backend.imageBlob(id)); } catch (err) { console.warn("image", id, err); }
+    };
+    await Promise.all([copy.public, ...(copy.npcs || []), ...(copy.enemies || [])].map(swap));
+    return copy;
+  }
+
+  // Lets a GM pick an image file next to a URL field. It goes into the bounty's Drive folder and the
+  // field is filled with its link.
+  function addUploader(urlInput, nameFor) {
+    const btn = el("button", { type: "button", class: "btn btn-ghost btn-small upload-btn", text: "Upload image" });
+    const picker = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", hidden: true });
+    const wrap = el("span", { class: "url-upload" });
+    urlInput.replaceWith(wrap);
+    wrap.append(urlInput, btn, picker);
+    btn.addEventListener("click", () => picker.click());
+    picker.addEventListener("change", async () => {
+      const file = picker.files[0]; picker.value = "";
+      if (!file) return;
+      const m = readEditor(JSON.parse(JSON.stringify(state.current.module)));
+      if (!m.public.title || !m.public.gmName) {
+        status("save-status", "Give the bounty a title and your GM name first, so the image has a folder to go to.", true); return;
+      }
+      if (file.size > 15 * 1024 * 1024) { status("save-status", "That image is over 15 MB. Please use a smaller one.", true); return; }
+      btn.disabled = true;
+      try {
+        status("save-status", `Uploading ${file.name} to Bounties / ${m.public.gmName} / ${m.public.title}…`);
+        const ext = (file.name.match(/\.(png|jpe?g|webp)$/i) || [".png"])[0].toLowerCase();
+        const { url } = await backend.uploadImage(m, file, `${nameFor()}${ext}`);
+        urlInput.value = url;
+        urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+        status("save-status", "Uploaded. Save to keep it on the bounty.");
+      } catch (err) {
+        status("save-status", err.status === 403 || err.status === 404
+          ? "Couldn't upload: you need Editor access to the Bounties folder." : `Couldn't upload: ${err.message}`, true);
+      } finally { btn.disabled = false; }
+    });
+  }
+
   // Renders every NPC and enemy as a unit card PNG for the bounty's folder.
   async function renderCards(m) {
+    m = await inlineImages(m);
     const units = [...(m.npcs || []).map((u) => [u, "npc"]), ...(m.enemies || []).map((u) => [u, "enemy"])];
     const seen = new Map();
     const cards = [];
@@ -478,7 +562,7 @@
   }
 
   async function refreshPdf(m) {
-    const blob = await window.ModulePdf.toBlob(m);
+    const blob = await window.ModulePdf.toBlob(await inlineImages(m));
     const file = await backend.savePdf(m.pdfId, m, blob);
     m.pdfId = file.id; m.pdfUrl = file.webViewLink || m.pdfUrl;
   }
@@ -497,6 +581,7 @@
       try { await refreshPdf(m); } catch (err) { console.warn(err); warnings.push(`the PDF couldn't be made (${err.message})`); }
       status("save-status", "Making the unit cards…");
       try { await backend.saveCards(m, await renderCards(m)); } catch (err) { console.warn(err); warnings.push(`the unit cards couldn't be saved (${err.message})`); }
+      try { await backend.pruneImages(m); } catch (err) { console.warn("prune", err); }
       if (!m.closed) {
         status("save-status", "Publishing the card to the board…");
         try { await backend.upsertCard(m); m.published = true; } catch (err) {
@@ -519,7 +604,7 @@
     const btn = $("download-pdf"); btn.disabled = true;
     try {
       status("save-status", "Laying out the session module PDF…");
-      downloadBlob(await window.ModulePdf.toBlob(m), pdfName(m));
+      downloadBlob(await window.ModulePdf.toBlob(await inlineImages(m)), pdfName(m));
       status("save-status", "PDF downloaded. It hasn't been saved to Drive; use Save for that.");
     } catch (err) { status("save-status", `Couldn't make the PDF: ${err.message}`, true); } finally { btn.disabled = false; }
   }
@@ -738,6 +823,7 @@
     $("signout").addEventListener("click", signOut);
     document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
     $("new-module").addEventListener("click", newModule);
+    addUploader($("editor").elements.imageUrl, () => "Poster");
     document.querySelector('[data-add="scenes"]').addEventListener("click", () => addScene());
     document.querySelector('[data-add="npcs"]').addEventListener("click", () => addUnit("npc"));
     document.querySelector('[data-add="enemies"]').addEventListener("click", () => addUnit("enemy"));

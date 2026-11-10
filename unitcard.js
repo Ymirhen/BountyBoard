@@ -31,7 +31,11 @@
     return s;
   }
   function div(cls, text) { const d = document.createElement("div"); if (cls) d.className = cls; if (text != null) d.textContent = text; return d; }
-  const safeUrl = (v) => { try { const u = new URL(String(v || "").trim()); return u.protocol === "https:" ? u.href : ""; } catch { return ""; } };
+  const safeUrl = (v) => {
+    const t = String(v || "").trim();
+    if (/^(blob:|data:image\/)/.test(t)) return t; // images the board fetched and inlined for export
+    try { const u = new URL(t); return u.protocol === "https:" ? u.href : ""; } catch { return ""; }
+  };
   const lines = (t) => String(t || "").split("\n").map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
 
   function badges(u, kind) {

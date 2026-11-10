@@ -19,7 +19,11 @@
     if (text != null) n.textContent = text;
     return n;
   }
-  const safeUrl = (v) => { try { const u = new URL(String(v || "").trim()); return u.protocol === "https:" ? u.href : ""; } catch { return ""; } };
+  const safeUrl = (v) => {
+    const t = String(v || "").trim();
+    if (/^(blob:|data:image\/)/.test(t)) return t; // images the board fetched and inlined for export
+    try { const u = new URL(t); return u.protocol === "https:" ? u.href : ""; } catch { return ""; }
+  };
   const has = (v) => String(v ?? "").trim() !== "";
   const splitParas = (t) => String(t || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
   function add(parent, ...kids) { kids.flat().forEach((k) => k && parent.append(k)); return parent; }

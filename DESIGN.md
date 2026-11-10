@@ -36,12 +36,15 @@ Bounty Project/                    (Drive folder, owned by the guild lead)
 │       └── <bounty title>/        one folder per bounty, e.g. Porcupine/
 │           ├── <title>.json                     the module the builder loads and saves
 │           ├── <title> - Session module.pdf     regenerated on every save
-│           └── <unit> - unit card.png           one per NPC and enemy
+│           ├── <unit> - unit card.png           one per NPC and enemy
+│           └── Poster.png, <unit> - portrait.png images uploaded from the builder
 └── Bounty Records (sheet)
     ├── Active                     public cards shown on the board
     ├── Completed                  archive
     ├── Failed                     archive
     └── Completed by players       one row per merc per completed bounty
+
+Poster art and portraits can be uploaded from the builder ("Upload image" next to each image URL field). The file goes into the bounty's folder and is made link-viewable on its own, so players see the poster on the board; the folder itself stays GM-only. Its link (`lh3.googleusercontent.com/d/<id>`) fills the URL field. For the unit card PNGs and the PDF, the board fetches uploaded images with the GM's token so they always export. On save, uploaded images the module no longer uses go to the trash.
 
 Each bounty folder is tagged with its module id, so renaming a bounty (or its GM name) renames or moves the folder instead of creating a new one. Unit cards are matched by file name: changed ones are overwritten, and cards for removed units go to the trash.
 ```
