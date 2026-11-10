@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  const CARD_W = 236, CARD_H = 330, GAP = 56, ROW_H = CARD_H + 70, EMPTY_ROW_H = 74;
+  const CARD_W = 236, CARD_H = 350, GAP = 56, ROW_H = CARD_H + 70, EMPTY_ROW_H = 74;
   const LEFT = 190, RIGHT = 120, TOP = 90, BOTTOM = 90;
   const EDGE = 0.2;          // outer 20% of the window steers the camera
   const EDGE_SPEED = 900;    // px per second at the very edge
@@ -24,14 +24,22 @@
     return row;
   }
 
+  // Wax seal with its status written beside it (the seal art itself carries no text).
+  function seal(status) {
+    const s = el("span", `seal-badge ${status.toLowerCase()}`);
+    const img = el("img"); img.src = `assets/seal-${status.toLowerCase()}.png`; img.alt = ""; img.draggable = false;
+    s.append(img, el("span", "seal-text", status.toUpperCase()));
+    return s;
+  }
+
   function notice(b) {
     const card = el("button", `bnotice status-${b.status.toLowerCase()}`);
     card.type = "button";
     card.setAttribute("aria-label", `${b.title}, level ${b.level}, ${b.reward} gold, ${b.status}. Open posting.`);
-    card.append(el("span", "tack"));
+    const tack = el("img", "tack"); tack.src = "assets/tack.png"; tack.alt = ""; tack.draggable = false; card.append(tack);
     const inner = el("span", "notice-inner");
     const head = el("span", "notice-head");
-    head.append(el("span", "kicker", "BOUNTY"), el("span", `seal ${b.status.toLowerCase()}`, b.status.toUpperCase()));
+    head.append(el("span", "kicker", "BOUNTY"), seal(b.status));
     inner.append(head);
     if (b.image) {
       const img = el("img", "notice-art"); img.src = b.image; img.alt = ""; img.loading = "lazy"; img.draggable = false;
@@ -41,7 +49,8 @@
     inner.append(el("span", "notice-title", b.title));
     inner.append(koban(b.level));
     const reward = el("span", "notice-reward");
-    reward.append(el("span", "purse", "◈"), `${b.reward.toLocaleString("en-US")} g`);
+    const purse = el("img", "purse"); purse.src = "assets/purse.png"; purse.alt = ""; purse.draggable = false;
+    reward.append(purse, `${b.reward.toLocaleString("en-US")} g`);
     inner.append(reward);
     const meta = [b.gm && `GM ${b.gm}`, b.session].filter(Boolean).join(" · ");
     if (meta) inner.append(el("span", "notice-meta", meta));
@@ -52,6 +61,7 @@
   }
 
   function layout(bounties, filter) {
+    if (!viewport.clientWidth) return; // hidden: the ResizeObserver lays out once it's shown
     const rows = [];
     for (let lvl = 10; lvl >= 0; lvl--) rows.push({ lvl, items: bounties.filter((b) => b.level === lvl) });
     const widest = Math.max(1, ...rows.map((r) => r.items.length));
@@ -64,7 +74,9 @@
       const row = el("div", r.items.length ? "wall-row" : "wall-row empty");
       row.style.top = `${y}px`; row.style.height = `${h}px`; row.style.width = `${W}px`;
       const plaque = el("div", "level-plaque");
-      plaque.append(el("span", "plaque-koban", String(r.lvl)), el("span", "plaque-label", "LEVEL"));
+      const kob = el("img", "plaque-koban"); kob.src = "assets/coin-gold.png"; kob.alt = ""; kob.draggable = false;
+      const num = el("span", "plaque-num"); num.append(el("span", "plaque-level", String(r.lvl)), el("span", "plaque-label", "LEVEL"));
+      plaque.append(kob, num);
       row.append(plaque, el("div", "row-rail"));
       r.items.forEach((b, i) => {
         const n = notice(b);
@@ -179,7 +191,13 @@
     viewport.addEventListener("keydown", onKey);
     viewport.addEventListener("dragstart", (e) => e.preventDefault());
     let last = { bounties: [], filter: "All" };
-    window.addEventListener("resize", () => layout(last.bounties, last.filter));
+    // Re-lay out whenever the window changes size, including when the wall becomes visible again.
+    let lastSize = "";
+    new ResizeObserver(() => {
+      if (!viewport.clientWidth) { lastSize = ""; return; } // hidden: lay out again when shown
+      const size = `${viewport.clientWidth}x${viewport.clientHeight}`;
+      if (size !== lastSize) { lastSize = size; layout(last.bounties, last.filter); }
+    }).observe(viewport);
     window.BountyWall._remember = (b, f) => { last = { bounties: b, filter: f }; };
   }
 
@@ -188,5 +206,5 @@
     layout(bounties, filter);
   }
 
-  window.BountyWall = { init, render, koban, _remember() {} };
+  window.BountyWall = { init, render, koban, seal, _remember() {} };
 })();

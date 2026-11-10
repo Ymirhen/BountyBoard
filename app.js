@@ -592,7 +592,7 @@
 
   function openBounty(b) {
     const stamp = $("bd-stamp");
-    stamp.className = `stamp ${b.status.toLowerCase()}`; stamp.textContent = b.status.toUpperCase();
+    stamp.className = "bd-seal"; stamp.replaceChildren(window.BountyWall.seal(b.status));
     $("bd-title").textContent = b.title;
     $("bd-coins").replaceWith(Object.assign(window.BountyWall.koban(b.level, "big"), { id: "bd-coins" }));
     $("bd-level-text").textContent = `Level ${b.level}`;

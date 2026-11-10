@@ -361,3 +361,61 @@ textarea { resize: vertical; }
 
 @media (prefers-reduced-motion: reduce) { .bnotice { transition: none; } .wall-hint { animation: none; } }
 .dialog.dialog-bounty h2 { color: var(--paper-text); }
+
+/* ---------- art assets (ChatGPT-generated set) ---------- */
+.top { border-bottom: none; padding-bottom: 8px; }
+.divider { display: block; width: min(820px, 100%); height: auto; margin: 4px auto 0; pointer-events: none; }
+.title-plaque {
+  width: min(660px, 100%); aspect-ratio: 4 / 1; display: grid; place-items: center; padding: 0 10%;
+  background: url("assets/header-plaque.png") center / 100% 100% no-repeat;
+}
+.title-plaque h1 { font-size: clamp(20px, 4.2vw, 40px); text-align: center; color: #f3dc94; text-shadow: 0 2px 3px rgba(0,0,0,.85); }
+
+.btn-gold {
+  border: 12px solid transparent; border-image: url("assets/button-brass.png") 44 fill / 12px stretch;
+  background: none; color: #2a1a05; text-shadow: 0 1px 0 rgba(255,236,180,.55); padding: 0 10px; min-height: 48px;
+}
+.btn-gold:hover { background: none; filter: brightness(1.12); color: #2a1a05; }
+.btn-gold:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: 3px; }
+
+.bnotice { background: #e2d2ad url("assets/parchment.jpg") center / cover; }
+.card { background: #e6d9bb url("assets/parchment.jpg") center / cover; }
+.dialog-bounty { background: #e6d9bb url("assets/parchment.jpg") center / cover; }
+
+img.tack { position: absolute; top: -12px; left: 50%; width: 26px; height: 26px; margin-left: -13px; z-index: 2; background: none; box-shadow: none; filter: drop-shadow(0 3px 2px rgba(0,0,0,.6)); }
+
+.seal-badge { display: inline-flex; align-items: center; gap: 5px; }
+.seal-badge img { width: 30px; height: 30px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
+.seal-text { font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.seal-badge.open .seal-text { color: #2f5d3a; }
+.seal-badge.full .seal-text { color: #7a2a2a; }
+.seal-badge.completed .seal-text { color: #1f1a14; }
+.seal-badge.failed .seal-text { color: #5b5753; }
+.bd-seal .seal-badge img { width: 48px; height: 48px; }
+.bd-seal .seal-text { font-size: 12px; }
+
+img.purse { width: 28px; height: 28px; align-self: center; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+
+.kb, .pips i { width: 10px; height: 15px; border: none; border-radius: 0; box-shadow: none; background: url("assets/coin-empty.png") center / contain no-repeat; }
+.kb.on, .pips i.on { background: url("assets/coin-gold.png") center / contain no-repeat; }
+.pips { gap: 2px; }
+.koban-row.big .kb { width: 18px; height: 27px; }
+
+.level-plaque { flex-direction: row; justify-content: center; gap: 8px; padding: 10px 8px; }
+img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; background: none; box-shadow: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+.plaque-num { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.plaque-level { font-family: Cinzel, Georgia, serif; font-weight: 800; font-size: 28px; color: #f3dc94; text-shadow: 0 2px 2px rgba(0,0,0,.7); }
+.plaque-num .plaque-label { margin-top: 4px; }
+.wall-row.empty img.plaque-koban { width: 20px; height: 30px; }
+.wall-row.empty .plaque-level { font-size: 17px; }
+.wall-row.empty .plaque-num { flex-direction: row; gap: 6px; align-items: baseline; }
+.wall-row.empty .plaque-num .plaque-label { margin-top: 0; }
+
+.notice-art { border: 8px solid transparent; border-image: url("assets/frame-portrait.png") 64 / 8px stretch; box-sizing: border-box; }
+.bd-art { border: 16px solid transparent; border-image: url("assets/frame-portrait.png") 64 / 16px stretch; background: #d6c49a; box-sizing: border-box; }
+.card .art { border: 10px solid transparent; border-image: url("assets/frame-portrait.png") 64 / 10px stretch; box-sizing: border-box; }
+.title-plaque { width: min(820px, 100%); padding: 0 11%; }
+.title-plaque h1 { font-size: clamp(16px, 3.3vw, 36px); white-space: nowrap; }
+.bnotice { height: 350px; }
+.notice-art { height: 132px; }
+.notice-hook { height: 132px; -webkit-line-clamp: 6; }
