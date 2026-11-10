@@ -31,17 +31,19 @@ Sign-ups happen on Discord, not on the board.
 
 ```
 Bounty Project/                    (Drive folder, owned by the guild lead)
-├── Bounties/                      poster art, shared GM material
+├── Bounties/                      GMs are Editors; the board only ever works inside this folder
+│   └── <GM name>/                 one folder per GM, e.g. Ymirhen/
+│       └── <bounty title>/        one folder per bounty, e.g. Porcupine/
+│           ├── <title>.json                     the module the builder loads and saves
+│           ├── <title> - Session module.pdf     regenerated on every save
+│           └── <unit> - unit card.png           one per NPC and enemy
 └── Bounty Records (sheet)
     ├── Active                     public cards shown on the board
     ├── Completed                  archive
     ├── Failed                     archive
     └── Completed by players       one row per merc per completed bounty
 
-Each GM's own Drive (private, created by the board on first save)
-└── Black Market Bounty Board/
-    ├── Module data/               <title>.json, the module the builder loads and saves
-    └── Session modules/           <title> - Session module.pdf, regenerated on every save
+Each bounty folder is tagged with its module id, so renaming a bounty (or its GM name) renames or moves the folder instead of creating a new one. Unit cards are matched by file name: changed ones are overwritten, and cards for removed units go to the trash.
 ```
 
 ### Active tab (public)
@@ -104,7 +106,7 @@ Portraits only export if the image host allows cross-origin use. `i.ibb.co` dire
 
 ## Session module PDF
 
-On every save, the module is laid out as a printed one-shot (A4) and saved to the GM's "Session modules" folder:
+On every save, the module is laid out as a printed one-shot (A4) and saved to the bounty's folder:
 - **Cover page:** title, level coins, rewards, GM, session, location, poster art, the posting, and a GM-only notice.
 - **Body:** the overview with objective, success and failure boxes; the briefing as a read-aloud box; scenes with RP beats and roll boxes; the cast and enemies as unit cards with their D100 tables; a healing and buffing reference; twists; rewards; GM notes; and the outcome once closed.
 - Pages are flowed by the board itself: headings stay with what follows, and cards and boxes never split.
@@ -115,10 +117,10 @@ On every save, the module is laid out as a printed one-shot (A4) and saved to th
 
 1. **Write and publish:**
    1. The GM signs in and opens Host a new bounty, then fills in the builder and saves.
-   2. The board folder and its subfolders are created if missing. The module JSON is saved in Module data, and the session module PDF is generated into Session modules.
+   2. Bounties/<GM name>/<title>/ is created if missing. The module JSON, the session module PDF and one unit card PNG per NPC and enemy are saved there.
    3. The card is added to the Active tab, or updated if it's already there.
-   4. If the GM isn't a sheet editor, the module is still saved privately, and the board explains that only approved GMs can publish.
-2. **Edit:** the GM opens My bounties, picks a module, edits it and saves. The same three things are updated.
+   4. If the GM isn't a sheet editor, the board explains that only approved GMs can publish.
+2. **Edit:** the GM opens My bounties, picks a module, edits it and saves. The JSON, PDF, unit cards and card are updated.
 3. **Mark full:** the GM sets the status to Full and saves. The card's stamp changes.
 4. **Close out:**
    1. The GM chooses Completed or Failed, sets the final reward (it defaults to the initial reward), lists the party as `Character - Player` lines, and sets gold per merc.
@@ -128,7 +130,8 @@ On every save, the module is laid out as a printed one-shot (A4) and saved to th
 
 ## Privacy and security
 
-- Module plans are private through Drive ownership: they're created in the GM's own Drive with the `drive.file` scope. The app can only see files it created, never the rest of the GM's Drive.
+- Module plans are shared among GMs: every GM with Editor access to Bounties can open every bounty folder. Players never get access to Bounties.
+- The board asks for the full `drive` scope so it can write into the shared folder, but the code only reads and writes inside the configured Bounties folder (`BOUNTIES_FOLDER_ID`). My bounties lists only modules the signed-in GM owns.
 - The site holds no secrets. The OAuth client ID is public by design, and there is no client secret.
 - A static site can't hide configuration, so there is no private GM email list in the code. GM status is "is an editor of the sheet", which is managed in Drive.
 - Everything read from the sheet is shown as plain text, and only `https` image links are used.

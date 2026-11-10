@@ -2,7 +2,7 @@
  *
  * Public: reads the "Active" tab of the Bounty Records sheet and shows wanted-poster cards.
  * GMs (signed in with Google) write one-shot modules. In the GM's own Drive the board keeps:
- *   Black Market Bounty Board/
+ *   (moved: see BOUNTIES_FOLDER_ID in config.js)
  *     Module data/       one JSON file per module (the source of truth the builder loads and saves)
  *     Session modules/   a printable, one-shot style PDF per module, regenerated on every save
  * Publishing upserts the module's card in the Active tab; closing out archives it to Completed/Failed
@@ -17,7 +17,7 @@
     "location", "hook", "image_url", "created_at", "updated_at"];
   const STATUSES = ["All", "Open", "Full"];
   const SCOPES = [
-    "https://www.googleapis.com/auth/drive.file",   // the GM's own board folder and files (only files this app created)
+    "https://www.googleapis.com/auth/drive",        // write into the shared Bounties folder (the code never leaves it)
     "https://www.googleapis.com/auth/spreadsheets", // publish cards and archive results in the Bounty Records sheet
     "openid", "email", "profile",
   ].join(" ");
@@ -102,32 +102,47 @@
       return json.table.rows.map((r) => Object.fromEntries(labels.map((l, i) => [l, r.c[i] ? (r.c[i].v ?? "") : ""])));
     },
 
-    // The GM's board folder and its two subfolders, created on first use and found again by tag.
-    async folders() {
-      if (state.folders) return state.folders;
-      const find = async (role, parent) => {
-        let q = `mimeType='${FOLDER}' and appProperties has { key='carpathiaFolder' and value='${role}' } and trashed=false`;
-        if (parent) q += ` and '${parent}' in parents`;
-        const data = await api(`${DRIVE}?q=${encodeURIComponent(q)}&pageSize=1&fields=files(id,name)`);
-        return data.files && data.files[0] ? data.files[0] : null;
-      };
-      const create = async (name, role, parent) => (await api(`${DRIVE}?fields=id`, {
+    // Shared layout: Bounties/<GM name>/<bounty title>/ holds the module JSON, the session PDF and
+    // the unit cards. A bounty's folder is tagged with its module id, so renaming the bounty or the
+    // GM moves/renames the folder instead of making a new one. Nothing outside Bounties is touched.
+    async bountyFolder(m) {
+      const base = CFG.BOUNTIES_FOLDER_ID;
+      if (!base) throw new Error("BOUNTIES_FOLDER_ID is missing from config.js");
+      const q = (s) => String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      const list = async (query, fields = "files(id,name,parents)") =>
+        (await api(`${DRIVE}?q=${encodeURIComponent(query + " and trashed=false")}&pageSize=10&fields=${fields}`)).files || [];
+      const mkdir = async (name, parent, tags) => (await api(`${DRIVE}?fields=id`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, mimeType: FOLDER, appProperties: { carpathiaFolder: role }, ...(parent ? { parents: [parent] } : {}) }),
+        body: JSON.stringify({ name, mimeType: FOLDER, parents: [parent], appProperties: tags }),
       })).id;
-      const ROOT_NAME = "Black Market Bounty Board";
-      const found = await find("root");
-      const root = found ? found.id : await create(ROOT_NAME, "root");
-      if (found && found.name !== ROOT_NAME) { // folders made before the board was renamed
-        await api(`${DRIVE}/${root}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: ROOT_NAME }) }).catch(() => {});
+      const gmName = (m.public.gmName || "Unknown GM").replace(/[\\/]+/g, "-").trim();
+      const title = (m.public.title || "Untitled bounty").replace(/[\\/]+/g, "-").trim();
+      // GM folder: by name under Bounties
+      const gms = await list(`'${base}' in parents and mimeType='${FOLDER}' and name='${q(gmName)}'`);
+      const gmId = gms[0] ? gms[0].id : await mkdir(gmName, base, { carpathiaGm: "1" });
+      // Bounty folder: by module tag anywhere; else by title inside the GM folder; else new
+      let folder = (await list(`mimeType='${FOLDER}' and appProperties has { key='moduleId' and value='${q(m.id)}' }`))[0];
+      if (!folder) folder = (await list(`'${gmId}' in parents and mimeType='${FOLDER}' and name='${q(title)}'`))[0];
+      if (!folder) return mkdir(title, gmId, { carpathiaBounty: "1", moduleId: m.id });
+      const parents = folder.parents || [];
+      const move = parents.includes(gmId) ? "" : `&addParents=${gmId}&removeParents=${parents.join(",")}`;
+      if (move || folder.name !== title) {
+        await api(`${DRIVE}/${folder.id}?fields=id${move}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: title, appProperties: { carpathiaBounty: "1", moduleId: m.id } }),
+        });
       }
-      const data = (await find("data", root))?.id || (await create("Module data", "data", root));
-      const pdf = (await find("pdf", root))?.id || (await create("Session modules", "pdf", root));
-      state.folders = { root, data, pdf };
-      return state.folders;
+      return folder.id;
+    },
+    // PATCH a file's content and metadata, moving it into `folder` if it lives elsewhere.
+    async putInto(fileId, folder, meta, body, type) {
+      const { parents = [] } = await api(`${DRIVE}/${fileId}?fields=parents`);
+      const move = parents.includes(folder) ? "" : `&addParents=${folder}&removeParents=${parents.join(",")}`;
+      return api(`${UPLOAD}/${fileId}?uploadType=multipart&fields=id,webViewLink${move}`, { method: "PATCH", ...multipart(meta, body, type) });
     },
     async listModules() {
-      const q = encodeURIComponent("appProperties has { key='carpathiaModule' and value='1' } and trashed=false");
+      // Only the signed-in GM's own modules ("My bounties"); other GMs' stay in their folders.
+      const q = encodeURIComponent("appProperties has { key='carpathiaModule' and value='1' } and 'me' in owners and trashed=false");
       const data = await api(`${DRIVE}?q=${q}&orderBy=modifiedTime desc&pageSize=100&fields=files(id,name,modifiedTime,appProperties)`);
       return (data.files || []).map((f) => ({ fileId: f.id, title: f.appProperties.title || f.name, status: f.appProperties.status || "Draft", modified: f.modifiedTime }));
     },
@@ -136,34 +151,46 @@
       return typeof text === "string" ? JSON.parse(text) : text;
     },
     async saveModule(fileId, m) {
-      const { data } = await this.folders();
+      const folder = await this.bountyFolder(m);
       const meta = {
         name: `${m.public.title || "Untitled bounty"}.json`,
         appProperties: { carpathiaModule: "1", moduleId: m.id, status: m.public.status, title: (m.public.title || "").slice(0, 60) },
       };
       const body = JSON.stringify(m, null, 2);
-      if (fileId) {
-        // Move older modules (saved before folders existed) into Module data.
-        const { parents = [] } = await api(`${DRIVE}/${fileId}?fields=parents`);
-        const move = parents.includes(data) ? "" : `&addParents=${data}&removeParents=${parents.join(",")}`;
-        await api(`${UPLOAD}/${fileId}?uploadType=multipart&fields=id${move}`, { method: "PATCH", ...multipart(meta, body, "application/json") });
-        return fileId;
-      }
+      if (fileId) { await this.putInto(fileId, folder, meta, body, "application/json"); return fileId; }
       return (await api(`${UPLOAD}?uploadType=multipart&fields=id`, {
-        method: "POST", ...multipart({ ...meta, mimeType: "application/json", parents: [data] }, body, "application/json"),
+        method: "POST", ...multipart({ ...meta, mimeType: "application/json", parents: [folder] }, body, "application/json"),
       })).id;
     },
     async savePdf(pdfId, m, blob) {
-      const { pdf } = await this.folders();
+      const folder = await this.bountyFolder(m);
       const meta = { name: pdfName(m) };
       if (pdfId) {
-        try {
-          return await api(`${UPLOAD}/${pdfId}?uploadType=multipart&fields=id,webViewLink`, { method: "PATCH", ...multipart(meta, blob, "application/pdf") });
-        } catch (err) { if (err.status !== 404) throw err; } // deleted by the GM: make a new one
+        try { return await this.putInto(pdfId, folder, meta, blob, "application/pdf"); }
+        catch (err) { if (err.status !== 404) throw err; } // deleted by the GM: make a new one
       }
       return api(`${UPLOAD}?uploadType=multipart&fields=id,webViewLink`, {
-        method: "POST", ...multipart({ ...meta, mimeType: "application/pdf", parents: [pdf] }, blob, "application/pdf"),
+        method: "POST", ...multipart({ ...meta, mimeType: "application/pdf", parents: [folder] }, blob, "application/pdf"),
       });
+    },
+    // One PNG per NPC and enemy, named "<unit> - unit card.png". Cards are matched by name: changed
+    // ones are overwritten, new ones added, and cards for removed units moved to the trash.
+    async saveCards(m, cards) {
+      const folder = await this.bountyFolder(m);
+      const q = encodeURIComponent(`'${folder}' in parents and appProperties has { key='carpathiaCard' and value='1' } and trashed=false`);
+      const existing = new Map(((await api(`${DRIVE}?q=${q}&pageSize=100&fields=files(id,name)`)).files || []).map((f) => [f.name, f.id]));
+      for (const c of cards) {
+        const meta = { name: c.name, appProperties: { carpathiaCard: "1", moduleId: m.id } };
+        if (existing.has(c.name)) {
+          await api(`${UPLOAD}/${existing.get(c.name)}?uploadType=multipart&fields=id`, { method: "PATCH", ...multipart(meta, c.blob, "image/png") });
+          existing.delete(c.name);
+        } else {
+          await api(`${UPLOAD}?uploadType=multipart&fields=id`, { method: "POST", ...multipart({ ...meta, mimeType: "image/png", parents: [folder] }, c.blob, "image/png") });
+        }
+      }
+      for (const id of existing.values()) {
+        await api(`${DRIVE}/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+      }
     },
     async findActiveRow(id) {
       const data = await api(rangeUrl(`${TABS.active}!A1:A`));
@@ -215,6 +242,7 @@
       async loadModule(fileId) { return JSON.parse(JSON.stringify(files.get(fileId))); },
       async saveModule(fileId, m) { const id = fileId || "f" + newId(); files.set(id, JSON.parse(JSON.stringify(m))); return id; },
       async savePdf(pdfId, m, blob) { window.__demoPdf = blob; return { id: pdfId || "pdf" + newId(), webViewLink: URL.createObjectURL(blob) }; },
+      async saveCards(m, cards) { window.__demoCards = cards.map((c) => ({ name: c.name, size: c.blob.size })); },
       async upsertCard(m) { const r = Object.fromEntries(ACTIVE_COLS.map((c, i) => [c, cardRow(m)[i]])); const i = sheet.active.findIndex((x) => x.id === m.id); if (i >= 0) sheet.active[i] = r; else sheet.active.push(r); },
       async append(tab, rows) { const key = Object.keys(TABS).find((k) => TABS[k] === tab); sheet[key].push(...rows); },
       async removeCard(id) { sheet.active = sheet.active.filter((x) => x.id !== id); },
@@ -434,6 +462,21 @@
     return m;
   }
 
+  // Renders every NPC and enemy as a unit card PNG for the bounty's folder.
+  async function renderCards(m) {
+    const units = [...(m.npcs || []).map((u) => [u, "npc"]), ...(m.enemies || []).map((u) => [u, "enemy"])];
+    const seen = new Map();
+    const cards = [];
+    for (const [u, kind] of units) {
+      const base = (u.name || (kind === "enemy" ? "Enemy" : "NPC")).replace(/[\\/:*?"<>|]+/g, "").trim() || "Unit";
+      const n = (seen.get(base) || 0) + 1; seen.set(base, n);
+      const name = `${n > 1 ? `${base} (${n})` : base} - unit card.png`;
+      const url = await window.UnitCard.toPngDataUrl(window.UnitCard.render(u, kind));
+      cards.push({ name, blob: await (await fetch(url)).blob() });
+    }
+    return cards;
+  }
+
   async function refreshPdf(m) {
     const blob = await window.ModulePdf.toBlob(m);
     const file = await backend.savePdf(m.pdfId, m, blob);
@@ -448,10 +491,12 @@
     const btn = $("save"); btn.disabled = true;
     const warnings = [];
     try {
-      status("save-status", "Saving the module to your Drive…");
+      status("save-status", "Saving to the Bounties folder…");
       state.current.fileId = await backend.saveModule(state.current.fileId, m);
       status("save-status", "Laying out the session module PDF…");
       try { await refreshPdf(m); } catch (err) { console.warn(err); warnings.push(`the PDF couldn't be made (${err.message})`); }
+      status("save-status", "Making the unit cards…");
+      try { await backend.saveCards(m, await renderCards(m)); } catch (err) { console.warn(err); warnings.push(`the unit cards couldn't be saved (${err.message})`); }
       if (!m.closed) {
         status("save-status", "Publishing the card to the board…");
         try { await backend.upsertCard(m); m.published = true; } catch (err) {
@@ -462,7 +507,7 @@
       }
       await backend.saveModule(state.current.fileId, m);
       fillEditor(m);
-      status("save-status", warnings.length ? `Saved to your Drive, but ${warnings.join("; and ")}.` : (m.closed ? "Saved." : "Saved and published."), warnings.length > 0);
+      status("save-status", warnings.length ? `Saved to the Bounties folder, but ${warnings.join("; and ")}.` : (m.closed ? "Saved." : "Saved and published."), warnings.length > 0);
       loadBoard();
     } catch (err) {
       status("save-status", `Save failed: ${err.message}`, true);
@@ -676,7 +721,7 @@
   };
   function signOut() {
     if (state.token && window.google) google.accounts.oauth2.revoke(state.token, () => {});
-    state.token = null; state.user = null; state.current = null; state.folders = null;
+    state.token = null; state.user = null; state.current = null;
     setSignedIn(false); loadBoard();
   }
 
