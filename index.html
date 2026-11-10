@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=202611101828">
+  <link rel="stylesheet" href="styles.css?v=202611101843">
 </head>
 <body>
   <div class="wrap">
@@ -193,6 +193,7 @@
       </label>
       <label>Gold per merc<input name="goldEach" type="number" min="0" step="1"></label>
       <label>Notes<textarea name="notes" rows="3"></textarea></label>
+      <label class="check danger-check"><input type="checkbox" name="deleteFiles"> Also delete this bounty's Drive files (its folder with the module, session PDF, unit cards and uploaded images). They go to the Drive trash and can be restored for 30 days.</label>
       <p class="hint">This removes the bounty from the board, files it under Completed or Failed, and logs each merc in "Completed by players".</p>
       <p id="closeout-status" class="status-line" role="status"></p>
       <div class="dialog-actions">
@@ -220,14 +221,14 @@
     </article>
   </template>
 
-  <script src="config.js?v=202611101828"></script>
-  <script src="carpathia.js?v=202611101828"></script>
+  <script src="config.js?v=202611101843"></script>
+  <script src="carpathia.js?v=202611101843"></script>
   <script src="vendor/html2canvas.min.js"></script>
   <script src="vendor/jspdf.umd.min.js"></script>
-  <script src="unitcard.js?v=202611101828"></script>
-  <script src="modulepdf.js?v=202611101828"></script>
-  <script src="wall.js?v=202611101828"></script>
-  <script src="app.js?v=202611101828"></script>
+  <script src="unitcard.js?v=202611101843"></script>
+  <script src="modulepdf.js?v=202611101843"></script>
+  <script src="wall.js?v=202611101843"></script>
+  <script src="app.js?v=202611101843"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGisLoaded && window.onGisLoaded()"></script>
 </body>
 </html>

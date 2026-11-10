@@ -512,3 +512,5 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
 .url-upload { display: flex; gap: 8px; align-items: stretch; }
 .url-upload input { flex: 1 1 auto; min-width: 0; }
 .url-upload .upload-btn { flex: 0 0 auto; white-space: nowrap; padding: 6px 12px; font-size: 13px; }
+.danger-check { align-items: flex-start; color: #e8b4a8; line-height: 1.4; }
+.danger-check input { margin-top: 3px; }

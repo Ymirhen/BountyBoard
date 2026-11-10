@@ -206,6 +206,33 @@
         }
       }
     },
+    // Moves everything the board made for a bounty to the Drive trash (recoverable there for 30 days):
+    // its folder's files, the folder, any stray module/PDF from the old layout, and the GM folder if
+    // that leaves it empty. Returns how many items couldn't be trashed (e.g. owned by another GM).
+    async deleteBounty(m, moduleFileId) {
+      const trash = async (id) => {
+        try {
+          await api(`${DRIVE}/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+          return 0;
+        } catch (err) { if (err.status === 404) return 0; console.warn("trash", id, err); return 1; }
+      };
+      const list = async (query, fields = "files(id,parents)") =>
+        (await api(`${DRIVE}?q=${encodeURIComponent(query + " and trashed=false")}&pageSize=200&fields=${fields}`)).files || [];
+      let failed = 0;
+      const folders = await list(`mimeType='${FOLDER}' and appProperties has { key='moduleId' and value='${m.id.replace(/'/g, "")}' }`);
+      const gmFolders = new Set();
+      for (const folder of folders) {
+        for (const f of await list(`'${folder.id}' in parents`)) failed += await trash(f.id);
+        failed += await trash(folder.id);
+        (folder.parents || []).forEach((p) => gmFolders.add(p));
+      }
+      for (const id of [moduleFileId, m.pdfId]) if (id) failed += await trash(id);
+      for (const gm of gmFolders) {
+        if (gm === CFG.BOUNTIES_FOLDER_ID) continue;
+        if (!(await list(`'${gm}' in parents`)).length) await trash(gm);
+      }
+      return failed;
+    },
     // One PNG per NPC and enemy, named "<unit> - unit card.png". Cards are matched by name: changed
     // ones are overwritten, new ones added, and cards for removed units moved to the trash.
     async saveCards(m, cards) {
@@ -279,6 +306,7 @@
       async uploadImage(m, file, name) { const id = "demoimg" + newId() + "xx"; (window.__demoImages ||= []).push({ id, name, size: file.size }); return { id, url: driveImageUrl(id) }; },
       async imageBlob() { throw new Error("demo"); },
       async pruneImages() {},
+      async deleteBounty(m, fileId) { window.__demoDeleted = { id: m.id, fileId }; files.delete(fileId); return 0; },
       async upsertCard(m) { const r = Object.fromEntries(ACTIVE_COLS.map((c, i) => [c, cardRow(m)[i]])); const i = sheet.active.findIndex((x) => x.id === m.id); if (i >= 0) sheet.active[i] = r; else sheet.active.push(r); },
       async append(tab, rows) { const key = Object.keys(TABS).find((k) => TABS[k] === tab); sheet[key].push(...rows); },
       async removeCard(id) { sheet.active = sheet.active.filter((x) => x.id !== id); },
@@ -648,6 +676,17 @@
       await backend.removeCard(m.id);
       m.closed = { outcome, at: nowIso(), party, goldEach, notes };
       p.status = outcome; p.finalReward = finalReward;
+      if (f.deleteFiles.checked) {
+        status("closeout-status", "Moving the bounty's Drive files to the trash…");
+        const failed = await backend.deleteBounty(m, state.current.fileId);
+        $("closeout-dialog").close();
+        state.current = null;
+        show("mine");
+        notice(`"${p.title}" closed out as ${outcome}. Its folder and files are in your Drive trash (restorable for 30 days)` +
+          (failed ? `, except ${failed} item${failed > 1 ? "s" : ""} owned by someone else.` : "."));
+        loadBoard();
+        return;
+      }
       await backend.saveModule(state.current.fileId, m);
       status("closeout-status", "Updating the session module PDF…");
       try { await refreshPdf(m); await backend.saveModule(state.current.fileId, m); } catch (err) { console.warn(err); }

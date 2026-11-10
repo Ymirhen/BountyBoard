@@ -130,6 +130,7 @@ On every save, the module is laid out as a printed one-shot (A4) and saved to th
    2. A row goes to Completed or Failed, and on completion, one row per merc goes to Completed by players.
    3. The card is removed from Active.
    4. The module and its PDF record the outcome.
+   5. Optionally, the GM ticks "Also delete this bounty's Drive files". The bounty's folder (module, PDF, unit cards, uploaded images) then goes to the Drive trash instead, along with the GM folder if it's left empty. The sheet records stay.
 
 ## Privacy and security
 
