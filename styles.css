@@ -465,3 +465,9 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
 }
 .title-plaque { padding: 0; }
 .title-plaque h1 { font-size: clamp(14px, 3vw, 32px); font-size: 3.9cqi; }
+
+/* ---------- poster-only notices (bounties with poster art) ---------- */
+.bnotice.poster-only { height: auto; }
+.bnotice.poster-only .paper, .bnotice.poster-only .dog-ear { display: none; }
+.bnotice .poster-art { display: none; }
+.bnotice.poster-only .poster-art { display: block; width: 236px; height: auto; max-height: 380px; object-fit: cover; object-position: center top; }

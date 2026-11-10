@@ -117,11 +117,7 @@
     const head = el("span", "notice-head");
     head.append(el("span", "kicker", "BOUNTY"), seal(b.status));
     inner.append(head);
-    if (b.image) {
-      const img = el("img", "notice-art"); img.src = b.image; img.alt = ""; img.loading = "lazy"; img.draggable = false;
-      img.addEventListener("error", () => img.remove(), { once: true });
-      inner.append(img);
-    } else inner.append(el("span", "notice-hook", b.hook));
+    inner.append(el("span", "notice-hook", b.hook));
     inner.append(el("span", "notice-title", b.title));
     inner.append(koban(b.level));
     const reward = el("span", "notice-reward");
@@ -131,6 +127,15 @@
     const meta = [b.gm && `GM ${b.gm}`, b.session].filter(Boolean).join(" · ");
     if (meta) inner.append(el("span", "notice-meta", meta));
     paper.append(inner); // inside the paper, so the torn outline trims it too
+    // With poster art the wall shows only the poster itself, tacked up. The parchment notice
+    // above stays in the DOM (hidden) and comes back if the image fails to load.
+    if (b.image) {
+      const poster = el("img", "poster-art"); poster.alt = ""; poster.draggable = false; poster.loading = "lazy";
+      card.classList.add("poster-only");
+      poster.addEventListener("error", () => { card.classList.remove("poster-only"); poster.remove(); }, { once: true });
+      poster.src = b.image;
+      card.append(poster);
+    }
     card.addEventListener("click", (e) => { if (dragging && dragging.moved) { e.preventDefault(); return; } onOpen(b); });
     card.addEventListener("focus", () => focusOn(card));
     return card;
