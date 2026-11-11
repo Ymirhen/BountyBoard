@@ -27,22 +27,23 @@ Tips:
 
 ## Unit card portrait prompt (ChatGPT)
 
-Paste this into ChatGPT to generate a portrait for an NPC or enemy unit card in a World of Warcraft art style. Copy the style block exactly as it is, and change only the **Subject** line. The card crops the image to roughly 4:5 from the top, so the head and shoulders are kept in the upper part of the frame.
+Paste this into ChatGPT to generate the image for a unit card in a World of Warcraft art style. The style block only sets the look and the framing; the **Subject** line decides what's in the picture, and can be anything: a person, a group, a swarm of animals, a door, a place. The card crops the image to roughly 4:5 from the top, so the important part is kept in the upper middle.
 
 ```
-Character portrait for a fantasy game unit card, in the World of Warcraft art style: stylized hand-painted 3D look like Blizzard's in-game character models and official character art. Chunky, exaggerated proportions, oversized shoulder armor and gear, bold readable silhouette, hand-painted textures with visible brushwork on cloth, leather, fur and metal, rich saturated colors, warm rim light and soft painterly shading. Composition: one original character shown from the chest up, slightly turned toward the viewer, face and headgear in the upper half of the image, eyes about one third down from the top, the figure filling most of the width. Simple softly blurred background in colors that suit the character, with a gentle dark vignette at the edges. No text, no logos, no UI, no border or frame. Vertical portrait layout (2:3).
-Subject: [WHO: race/class/build/outfit], [FACE/HEADGEAR DETAIL], [EXPRESSION/MOOD], [ONE PROP visible at the shoulder or chest, optional].
+Image in the World of Warcraft art style: stylized, hand-painted look like Blizzard's in-game models and official art. Bold readable shapes with slightly exaggerated proportions, hand-painted textures with visible brushwork, rich saturated colors, warm rim light and soft painterly shading. Keep the subject's own nature and details exactly as described below and add nothing that isn't asked for. Framing: the most important part of the subject sits in the upper middle of the image and fills most of the width, with nothing important near the bottom edge. No text, no logos, no UI, no border or frame. Vertical layout (2:3).
+Subject: [describe exactly what should be shown]
 ```
 
 Subject examples:
 
-- `Subject: a young pandaren monk in a simple wrapped gi, a straw kasa hat pushed back, calm and watchful, a wooden staff resting on her shoulder.`
-- `Subject: a scarred human pirate captain in a long red coat, tricorn hat and eyepatch, sneering, a cutlass hilt at his chest.`
-- `Subject: a giant porcupine beast with quills bristling outward, small fierce eyes, snarling, in a dark forest.`
+- `Subject: a swarm of dozens of mangy sewer rats pouring out of a cracked cellar wall, red eyes glinting in the dark.`
+- `Subject: a young pandaren monk in a simple wrapped gi and a straw kasa hat, calm and watchful.`
+- `Subject: a heavy iron-banded vault door in a damp stone corridor, lit by a single torch.`
+- `Subject: three hooded smugglers huddled around a crate on a foggy pier at night.`
 
 Tips:
 
-- Enemies read best with a hard expression, harsher lighting and a darker background; friendly NPCs with a softer turn of the head and warmer light.
-- Describe your own characters rather than naming existing Warcraft characters, so you get an original portrait.
-- To keep a set consistent, ask in the same chat: "Match the style of the previous portrait exactly, new subject: …"
+- Put everything that matters into the Subject line: what it is, how many, the mood, the place and the light.
+- Describe your own characters rather than naming existing Warcraft characters, so you get an original image.
+- To keep a set consistent, ask in the same chat: "Match the style of the previous image exactly, new subject: …"
 - In the bounty builder, press **Upload image** next to the unit's "Portrait image URL" field and pick the file.
