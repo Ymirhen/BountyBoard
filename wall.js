@@ -171,9 +171,16 @@
   // and takes the one it overlaps least, with a slight pull toward the middle so small boards look
   // full rather than sparse. Newer notices are pinned on top. All randomness is seeded per bounty,
   // so a notice keeps its spot between visits.
+  // Width of the carved frame drawn over the window's edges; nothing is placed underneath it.
+  function frameInset() {
+    const f = viewport.querySelector(".wall-frame");
+    return f ? parseFloat(getComputedStyle(f).borderTopWidth) || 0 : 0;
+  }
+
   function layoutScatter(bounties, filter) {
     const vw = viewport.clientWidth, vh = viewport.clientHeight;
-    const n = bounties.length, M = 60;
+    const F = frameInset();
+    const n = bounties.length, M = 60 + F;
     const cell = (CARD_W + 40) * (CARD_H + 40);
     const aspect = Math.max(1.3, vw / vh);
     const area = Math.max(vw * vh, n * cell * 1.7);
@@ -214,7 +221,7 @@
       const w = 50 + rand(seed, 200 + j) * 80, h = 34 + rand(seed, 300 + j) * 60;
       let best = null;
       for (let k = 0; k < 25; k++) {
-        const r = { x: 20 + rand(seed, 1000 + j * 31 + k) * (W - 40 - w), y: 20 + rand(seed, 5000 + j * 31 + k) * (H - 40 - h), w, h };
+        const r = { x: F + 20 + rand(seed, 1000 + j * 31 + k) * (W - 2 * F - 40 - w), y: F + 20 + rand(seed, 5000 + j * 31 + k) * (H - 2 * F - 40 - h), w, h };
         const o = overlap(r);
         if (!best || o < best.o) best = { ...r, o };
       }
@@ -229,7 +236,7 @@
       world.append(scrap);
       const hole = el("span", "nail-hole");
       hole.setAttribute("aria-hidden", "true");
-      hole.style.left = `${20 + rand(seed, 700 + j) * (W - 40)}px`; hole.style.top = `${20 + rand(seed, 800 + j) * (H - 40)}px`;
+      hole.style.left = `${F + 20 + rand(seed, 700 + j) * (W - 2 * F - 40)}px`; hole.style.top = `${F + 20 + rand(seed, 800 + j) * (H - 2 * F - 40)}px`;
       world.append(hole);
     }
     if (!n) world.append(el("div", "wall-empty", "No bounties on the board right now."));
@@ -242,13 +249,14 @@
     for (let lvl = 10; lvl >= 0; lvl--) rows.push({ lvl, items: bounties.filter((b) => b.level === lvl) });
     const widest = Math.max(1, ...rows.map((r) => r.items.length));
     const vw = viewport.clientWidth, vh = viewport.clientHeight;
-    const W = Math.max(vw, LEFT + widest * (CARD_W + GAP) - GAP + RIGHT);
-    let y = TOP;
+    const F = frameInset();
+    const W = Math.max(vw, F + LEFT + widest * (CARD_W + GAP) - GAP + RIGHT + F);
+    let y = TOP + F;
     world.replaceChildren();
     for (const r of rows) {
       const h = r.items.length ? ROW_H : EMPTY_ROW_H;
       const row = el("div", r.items.length ? "wall-row" : "wall-row empty");
-      row.style.top = `${y}px`; row.style.height = `${h}px`; row.style.width = `${W}px`;
+      row.style.top = `${y}px`; row.style.height = `${h}px`; row.style.left = `${F}px`; row.style.width = `${W - 2 * F}px`;
       const plaque = el("div", "level-plaque");
       const kob = el("img", "plaque-koban"); kob.src = "assets/coin-gold.png"; kob.alt = ""; kob.draggable = false;
       const num = el("span", "plaque-num"); num.append(el("span", "plaque-level", String(r.lvl)), el("span", "plaque-label", "LEVEL"));
@@ -267,7 +275,7 @@
       y += h;
     }
     if (!bounties.length) world.append(el("div", "wall-empty", "No bounties on the board right now."));
-    finishLayout(W, Math.max(vh, y + BOTTOM), vw, vh);
+    finishLayout(W, Math.max(vh, y + BOTTOM + F), vw, vh);
   }
 
   function finishLayout(W, H, vw, vh) {
