@@ -27,21 +27,22 @@ Tips:
 
 ## Unit card portrait prompt (ChatGPT)
 
-Paste this into ChatGPT to generate a portrait for an NPC or enemy unit card, in the same ink style as the posters. Copy the style block exactly as it is, and change only the **Subject** line. The card crops the image to roughly 4:5 from the top, so the head and shoulders are kept in the upper part of the frame.
+Paste this into ChatGPT to generate a portrait for an NPC or enemy unit card in a World of Warcraft art style. Copy the style block exactly as it is, and change only the **Subject** line. The card crops the image to roughly 4:5 from the top, so the head and shoulders are kept in the upper part of the frame.
 
 ```
-Character portrait for a game unit card, painted in black sumi-e ink on aged cream washi paper, matching a Japanese wanted poster ("tehaisho") style. Loose expressive brush strokes, dry-brush texture, ragged torn edges where the figure fades out, light ink splatter and flecks. Ink: black ink only. A few brush strokes may thin out into gray where the brush runs dry, but only in small amounts; everything else is solid black, with the bare paper left as negative space for highlights; no color, no red seals, no text, no calligraphy, no border or frame. Composition: one figure shown from the chest up, slightly turned, face and headgear in the upper half of the image, eyes about one third down from the top, the figure filling most of the width, plain paper background. High contrast, crisp facial features, vertical portrait layout (2:3).
-Subject: [WHO: race/build/outfit], [FACE/HEADGEAR DETAIL], [EXPRESSION/MOOD], [ONE PROP visible at the shoulder or chest, optional].
+Character portrait for a fantasy game unit card, in the World of Warcraft art style: stylized hand-painted 3D look like Blizzard's in-game character models and official character art. Chunky, exaggerated proportions, oversized shoulder armor and gear, bold readable silhouette, hand-painted textures with visible brushwork on cloth, leather, fur and metal, rich saturated colors, warm rim light and soft painterly shading. Composition: one original character shown from the chest up, slightly turned toward the viewer, face and headgear in the upper half of the image, eyes about one third down from the top, the figure filling most of the width. Simple softly blurred background in colors that suit the character, with a gentle dark vignette at the edges. No text, no logos, no UI, no border or frame. Vertical portrait layout (2:3).
+Subject: [WHO: race/class/build/outfit], [FACE/HEADGEAR DETAIL], [EXPRESSION/MOOD], [ONE PROP visible at the shoulder or chest, optional].
 ```
 
 Subject examples:
 
 - `Subject: a young pandaren monk in a simple wrapped gi, a straw kasa hat pushed back, calm and watchful, a wooden staff resting on her shoulder.`
-- `Subject: a scarred human pirate captain in a long coat, tricorn hat and eyepatch, sneering, a cutlass hilt at his chest.`
-- `Subject: a giant porcupine beast with quills bristling outward, small fierce eyes, snarling.`
+- `Subject: a scarred human pirate captain in a long red coat, tricorn hat and eyepatch, sneering, a cutlass hilt at his chest.`
+- `Subject: a giant porcupine beast with quills bristling outward, small fierce eyes, snarling, in a dark forest.`
 
 Tips:
 
-- Enemies read best with a hard expression and a strong silhouette; friendly NPCs with a softer turn of the head.
+- Enemies read best with a hard expression, harsher lighting and a darker background; friendly NPCs with a softer turn of the head and warmer light.
+- Describe your own characters rather than naming existing Warcraft characters, so you get an original portrait.
 - To keep a set consistent, ask in the same chat: "Match the style of the previous portrait exactly, new subject: …"
 - In the bounty builder, press **Upload image** next to the unit's "Portrait image URL" field and pick the file.
