@@ -522,3 +522,13 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
 .url-upload .upload-btn { flex: 0 0 auto; white-space: nowrap; padding: 6px 12px; font-size: 13px; }
 .danger-check { align-items: flex-start; color: #e8b4a8; line-height: 1.4; }
 .danger-check input { margin-top: 3px; }
+
+/* Stacked koban: tilted, overlapping in order, gold ones laid over the dull ones */
+.koban-row { gap: 0; padding: 0 3px; }
+.koban-row .kb { position: relative; width: 13px; height: 20px; transform: rotate(14deg); filter: drop-shadow(1.5px 0.5px 1px rgba(40,20,0,.55)); }
+.koban-row .kb + .kb { margin-left: -5px; }
+.koban-row.big .kb { width: 20px; height: 30px; }
+.koban-row.big .kb + .kb { margin-left: -8px; }
+.pm-coins { gap: 0; padding-left: 2px; }
+.pm-coin { position: relative; width: 13px; height: 20px; border-radius: 50%; transform: rotate(14deg); box-shadow: 1.5px 0.5px 1.5px rgba(40,20,0,.45); }
+.pm-coin + .pm-coin { margin-left: -4px; }

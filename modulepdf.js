@@ -47,7 +47,11 @@
   }
   function coins(level) {
     const row = h("div", "pm-coins");
-    for (let i = 0; i < 10; i++) row.append(h("span", i < level ? "pm-coin on" : "pm-coin"));
+    for (let i = 0; i < 10; i++) {
+      const c = h("span", i < level ? "pm-coin on" : "pm-coin");
+      c.style.zIndex = String(10 - i);
+      row.append(c);
+    }
     return row;
   }
 

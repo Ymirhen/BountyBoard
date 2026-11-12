@@ -23,7 +23,12 @@
   function rand(seed, i) { let h = 2166136261; for (const c of seed + ":" + i) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; }
   function koban(level, cls) {
     const row = el("span", `koban-row ${cls || ""}`);
-    for (let i = 0; i < 10; i++) row.append(el("i", i < level ? "kb on" : "kb"));
+    // Gold koban first, then the dull ones; each sits a little over the next, like a stacked row.
+    for (let i = 0; i < 10; i++) {
+      const c = el("i", i < level ? "kb on" : "kb");
+      c.style.zIndex = String(10 - i);
+      row.append(c);
+    }
     return row;
   }
 
