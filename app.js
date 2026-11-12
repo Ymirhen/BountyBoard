@@ -750,7 +750,7 @@
       const stamp = q(".stamp"); stamp.textContent = b.status.toUpperCase(); stamp.classList.add(b.status.toLowerCase());
       q(".card-title").textContent = b.title;
       q(".level-text").textContent = `LEVEL ${b.level}`;
-      q(".pips").replaceChildren(...Array.from({ length: 10 }, (_, i) => el("i", { class: i < b.level ? "on" : "" })));
+      q(".pips").replaceChildren(...Array.from({ length: 10 }, (_, i) => { const c = el("i", { class: i < b.level ? "on" : "" }); c.style.zIndex = String(10 - i); return c; }));
       q(".amount").textContent = `${b.reward.toLocaleString("en-US")} g`;
       q(".summary").textContent = b.hook;
       q(".facts").replaceChildren(...[["GM", b.gm], ["When", b.session], ["Where", b.location]]

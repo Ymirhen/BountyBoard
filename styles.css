@@ -525,10 +525,13 @@ img.plaque-koban { width: 34px; height: 51px; border: none; border-radius: 0; ba
 
 /* Stacked koban: tilted, overlapping in order, gold ones laid over the dull ones */
 .koban-row { gap: 0; padding: 0 3px; }
-.koban-row .kb { position: relative; width: 13px; height: 20px; transform: rotate(14deg); filter: drop-shadow(1.5px 0.5px 1px rgba(40,20,0,.55)); }
-.koban-row .kb + .kb { margin-left: -5px; }
-.koban-row.big .kb { width: 20px; height: 30px; }
-.koban-row.big .kb + .kb { margin-left: -8px; }
+.koban-row .kb { position: relative; flex: none; width: 18px; height: 27px; transform: rotate(14deg); filter: drop-shadow(1.5px 0.5px 1px rgba(40,20,0,.55)); }
+.koban-row .kb + .kb { margin-left: -9px; }
+.koban-row.big .kb { width: 27px; height: 40px; }
+.koban-row.big .kb + .kb { margin-left: -14px; }
 .pm-coins { gap: 0; padding-left: 2px; }
-.pm-coin { position: relative; width: 13px; height: 20px; border-radius: 50%; transform: rotate(14deg); box-shadow: 1.5px 0.5px 1.5px rgba(40,20,0,.45); }
-.pm-coin + .pm-coin { margin-left: -4px; }
+.pm-coin { position: relative; width: 16px; height: 25px; border-radius: 50%; transform: rotate(14deg); box-shadow: 1.5px 0.5px 1.5px rgba(40,20,0,.45); }
+.pm-coin + .pm-coin { margin-left: -8px; }
+.pips { gap: 0; padding: 0 3px; }
+.pips i { position: relative; flex: none; width: 18px; height: 27px; transform: rotate(14deg); filter: drop-shadow(1.5px 0.5px 1px rgba(40,20,0,.55)); }
+.pips i + i { margin-left: -9px; }
